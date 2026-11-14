@@ -7,3 +7,5 @@ dist/
 logs/
 *.eval
 .env
+# Logs of published findings are kept.
+!findings/**/*.eval
