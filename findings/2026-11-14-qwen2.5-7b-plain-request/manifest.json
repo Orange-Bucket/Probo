@@ -45,8 +45,23 @@
   "cost": "local model; no API cost",
   "files": {
     "Modelfile": "62c763105e0658f83ad830839b7d98113cc24fe51e5a18b21f678a0618ac7f7c",
+    "judge-calibration.txt": "250b8cc270b331dfe3c9c970d120dadd664c7dc0a927e2a6c0a1b5761f6898e3",
     "report.json": "323901ae900668ea26ef0940021c227346cb06f18f6b119d085ea0c9343acee2",
     "report.md": "00dcf8af1a6b20af85996e0a3eadf6440c310af1eda5a53a77f24c83992aba3d",
+    "run-judged.eval": "1aa51ad60d9ec39c7784052d693683545e1111275b75ec0e77510475d8554f9d",
     "run.eval": "c02fdc0ae12ba15222ea87fc8307cd8001b45a8b3669dd19d6eaa14b11419fa5"
+  },
+  "judge": {
+    "scorer": "probo/reply_only_judge",
+    "model": "ollama/qwen2.5-7b-ctx16k (same weights as the target, bound to the judge role)",
+    "prompt_version": "1",
+    "prompt_sha256": "eb19f7839f5ef7f553c69daabd9cdf6377ceb5b1ee032078159d5039ca8c070a",
+    "generate_config": {
+      "temperature": 0.0,
+      "max_tokens": 1024
+    },
+    "probo_commit": "b297485 plus the unreleased 0.1.0 documentation changes (no code change)",
+    "input": "run.eval",
+    "output": "run-judged.eval"
   }
 }

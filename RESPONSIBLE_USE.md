@@ -1,9 +1,9 @@
 # Responsible use
 
 Probo is a harness for attacking AI agents. This page sets out what it is for and how it is meant
-to be run. Probo is pre-release and does not yet contain any scenario or attack (see the
-[README](README.md#status-pre-release)). This policy applies now, to every use of the code in this
-repository and to every contribution, and will continue to apply to releases.
+to be run. Probo 0.1.0 contains one scenario and one injection template (see the
+[README](README.md#limits)). This policy applies to every use of the code in this repository and
+to every contribution, and will continue to apply to later releases.
 
 ## What Probo is for
 
@@ -48,7 +48,7 @@ only that those attacks did not succeed in those trials. See the Limits section 
 
 ## Injection templates
 
-The injection templates Probo will ship are written for regression testing of the bundled range:
+The injection templates Probo ships are written for regression testing of the bundled range:
 to check that its scenarios stay exploitable and that its checks keep detecting the result. They
 are not a catalogue of attacks for use against other systems.
 

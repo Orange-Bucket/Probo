@@ -4,10 +4,12 @@ title: Probo
 type: software
 abstract: >-
   A firing range and proof harness for attacks on AI agents, built as an
-  extension package on Inspect. Pre-release.
+  extension package on Inspect.
 authors:
   - name: "Probo contributors"
 repository-code: "https://github.com/Orange-Bucket/Probo"
+version: 0.1.0
+date-released: 2026-11-14
 license: Apache-2.0
 keywords:
   - AI agents
