@@ -458,3 +458,108 @@ def test_one_megabyte_text_is_searched_quickly(chunk: str) -> None:
         elapsed = time.perf_counter() - started
         assert found == only(CanaryForm.VERBATIM, 1)
         assert elapsed < 1.0, elapsed
+
+
+# --- Review follow-ups -------------------------------------------------------------------------
+
+
+def printable(chunk: bytes) -> str:
+    """The character column of a hex dump."""
+    return "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
+
+
+def hexdump_c(data: bytes) -> str:
+    """``hexdump -C`` layout: offset, two groups of eight bytes, character column."""
+    lines: list[str] = []
+    for offset in range(0, len(data), 16):
+        chunk = data[offset : offset + 16]
+        left = " ".join(f"{b:02x}" for b in chunk[:8])
+        right = " ".join(f"{b:02x}" for b in chunk[8:])
+        lines.append(f"{offset:08x}  {left:<23}  {right:<23}  |{printable(chunk)}|")
+    return "\n".join(lines)
+
+
+def xxd(data: bytes) -> str:
+    """Default ``xxd`` layout: offset, two-byte groups, character column."""
+    lines: list[str] = []
+    for offset in range(0, len(data), 16):
+        chunk = data[offset : offset + 16]
+        groups = " ".join(chunk[i : i + 2].hex() for i in range(0, len(chunk), 2))
+        lines.append(f"{offset:08x}: {groups:<39}  {printable(chunk)}")
+    return "\n".join(lines)
+
+
+def xxd_plain(data: bytes) -> str:
+    """``xxd -p`` layout: plain hex, 30 bytes per line."""
+    digits = data.hex()
+    return "\n".join(digits[i : i + 60] for i in range(0, len(digits), 60))
+
+
+@pytest.mark.parametrize("token", TOKENS)
+def test_hex_dumps_with_offsets_are_not_detected_but_plain_hex_is(token: str) -> None:
+    """Offset and character columns break the hex run; ``xxd -p`` output is still hex."""
+    for before in range(17):
+        data = b"r" * before + token.encode() + b" end of record"
+        assert find_canary(token, [hexdump_c(data)]) == [], before
+        assert find_canary(token, [xxd(data)]) == [], before
+        assert find_canary(token, [xxd_plain(data)]) == only(CanaryForm.HEX, 0), before
+
+
+@pytest.mark.parametrize("token", TOKENS)
+def test_encoded_token_changed_only_in_its_prefix_is_still_found(token: str) -> None:
+    """Base64 or hex of a token whose prefix alone changed matches via the encoded hex part."""
+    digits = hex_part(token)
+    for variant in ("probo-canary-" + digits, "PROBO CANARY " + digits, "P R O B O" + digits):
+        data = variant.encode()
+        assert find_canary(token, [base64.b64encode(data).decode()]) == only(CanaryForm.BASE64, 0)
+        assert find_canary(token, [data.hex()]) == only(CanaryForm.HEX, 0)
+
+
+@pytest.mark.parametrize("token", TOKENS)
+def test_encoded_token_changed_inside_its_hex_part_is_not_found(token: str) -> None:
+    """Base64 or hex of a token whose hex characters changed case or gained separators fails."""
+    digits = hex_part(token)
+    for changed in (digits.upper(), " ".join(digits), digits[:16] + "-" + digits[16:]):
+        for prefix in (CANARY_PREFIX, ""):
+            data = (prefix + changed).encode()
+            assert find_canary(token, [base64.b64encode(data).decode()]) == [], changed
+            assert find_canary(token, [data.hex()]) == [], changed
+
+
+@pytest.mark.parametrize("token", TOKENS)
+def test_encoded_token_split_in_its_prefix_region_is_one_match(token: str) -> None:
+    """A full-token encoding split across fields is not reported again for its hex part."""
+    digits = token.encode().hex()
+    assert find_canary(token, ["x " + digits[:10], digits[10:]]) == only(CanaryForm.HEX, 0, 1)
+    encoded = base64.b64encode(token.encode()).decode()
+    assert find_canary(token, ["x " + encoded[:8], encoded[8:]]) == only(CanaryForm.BASE64, 0, 1)
+
+
+def flip(data: bytes, index: int, bit: int) -> bytes:
+    """``data`` with one bit flipped."""
+    return data[:index] + bytes([data[index] ^ (1 << bit)]) + data[index + 1 :]
+
+
+@pytest.mark.parametrize("token", TOKENS[:4])
+@pytest.mark.parametrize("before", [0, 1, 2])
+@pytest.mark.parametrize("after", [0, 1, 2])
+def test_every_bit_of_the_encoded_hex_part_is_checked(token: str, before: int, after: int) -> None:
+    """Flipping any bit of the hex part's bytes defeats the base64 and hex matches.
+
+    Flipping a bit of the prefix's bytes leaves the encoded hex part, which still matches once;
+    flipping a bit of a neighbouring byte never prevents the match.
+    """
+    head, tail = EDGE_BYTES[:before], EDGE_BYTES[-after:] if after else b""
+    payload = head + token.encode() + tail
+    hex_start = len(head) + len(CANARY_PREFIX)
+    hex_end = hex_start + 32
+    for index in range(len(payload)):
+        for bit in range(8):
+            flipped = flip(payload, index, bit)
+            for form, text in (
+                (CanaryForm.BASE64, base64.b64encode(flipped).decode()),
+                (CanaryForm.BASE64, base64.urlsafe_b64encode(flipped).decode().rstrip("=")),
+                (CanaryForm.HEX, flipped.hex()),
+            ):
+                expected = [] if hex_start <= index < hex_end else only(form, 0)
+                assert find_canary(token, [text]) == expected, (index, bit, form)
