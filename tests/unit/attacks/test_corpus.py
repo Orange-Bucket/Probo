@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Corpus loading: file validation, ordering, content hashing and the packaged corpus."""
 
+import hashlib
 import subprocess
 import sys
+import tomllib
 import warnings
 import zipfile
 from datetime import date
@@ -20,7 +22,7 @@ from probo.attacks import (
     load_corpus_from,
 )
 
-from .template_support import EXAMPLE_TEXT, template, toml_file, write
+from .template_support import EXAMPLE_TEXT, template, toml_file, toml_string, write
 
 
 def load(directory: Path) -> Corpus:
@@ -90,13 +92,39 @@ def test_duplicate_ids_in_a_zip_archive_are_rejected(tmp_path: Path) -> None:
 
 def test_corpus_rejects_duplicate_ids_and_foreign_families() -> None:
     """Building a Corpus directly applies the same checks as loading one."""
-    with pytest.raises(ValueError, match="duplicate template id 'reference-note'"):
+    with pytest.raises(CorpusError, match="duplicate template id 'reference-note'"):
         Corpus(version="2026-11", family="static", templates=(template(), template()))
     foreign = template().model_copy(update={"family": "dynamic"})
-    with pytest.raises(ValueError, match="not the corpus family 'static'"):
+    with pytest.raises(CorpusError, match="not the corpus family 'static'"):
         Corpus(version="2026-11", family="static", templates=(foreign,))
-    with pytest.raises(ValueError, match="YYYY-MM"):
+    with pytest.raises(CorpusError, match="YYYY-MM"):
         Corpus(version="2026-13", family="static", templates=())
+    with pytest.raises(CorpusError, match="corpus family 'Static' does not match"):
+        Corpus(version="2026-11", family="Static", templates=())
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("id", "../Bad Id"),
+        ("technique", "two\nlines"),
+        ("text", "carriage\rreturn"),
+        ("text", "{0.__class__}"),
+        ("date", "2026-11-01"),
+    ],
+)
+def test_corpus_revalidates_unvalidated_templates(field: str, value: object) -> None:
+    """A ``model_construct`` instance that breaks the schema cannot enter a corpus."""
+    broken = Template.model_construct(None, **{**template().model_dump(), field: value})
+    with pytest.raises(CorpusError, match="corpus has an invalid template"):
+        Corpus(version="2026-11", family="static", templates=(broken,))
+
+
+def test_corpus_rejects_a_template_missing_a_field() -> None:
+    fields = template().model_dump()
+    del fields["text"]
+    with pytest.raises(CorpusError, match="corpus has an invalid template"):
+        Corpus("2026-11", "static", (Template.model_construct(None, **fields),))
 
 
 @pytest.mark.parametrize(
@@ -111,11 +139,7 @@ def test_corpus_rejects_duplicate_ids_and_foreign_families() -> None:
 def test_unknown_and_missing_keys_name_the_file(
     tmp_path: Path, extra: str, drop: str | None, message: str
 ) -> None:
-    content = toml_file(extra=extra)
-    if drop is not None:
-        content = "".join(
-            line + "\n" for line in content.splitlines() if not line.startswith(f"{drop} = ")
-        )
+    content = toml_file(raw={drop: None} if drop is not None else None, extra=extra)
     path = write(tmp_path, "reference-note.toml", content)
     with pytest.raises(CorpusError, match=message) as caught:
         load(tmp_path)
@@ -125,13 +149,13 @@ def test_unknown_and_missing_keys_name_the_file(
 @pytest.mark.parametrize(
     ("content", "field"),
     [
-        (toml_file(date_literal='"2026-11-01"'), "date"),
-        (toml_file(date_literal="2026-11-01T09:30:00"), "date"),
-        (toml_file(date_literal="2026-11-01T09:30:00Z"), "date"),
-        (toml_file(date_literal="20261101"), "date"),
-        (toml_file().replace('id = "reference-note"', 'id = ["reference-note"]'), "id"),
-        (toml_file().replace("text = '''" + EXAMPLE_TEXT + "'''", "text = 7"), "text"),
-        (toml_file().replace('family = "static"', "family = true"), "family"),
+        (toml_file(raw={"date": '"2026-11-01"'}), "date"),
+        (toml_file(raw={"date": "2026-11-01T09:30:00"}), "date"),
+        (toml_file(raw={"date": "2026-11-01T09:30:00Z"}), "date"),
+        (toml_file(raw={"date": "20261101"}), "date"),
+        (toml_file(raw={"id": '["reference-note"]'}), "id"),
+        (toml_file(raw={"text": "7"}), "text"),
+        (toml_file(raw={"family": "true"}), "family"),
     ],
 )
 def test_wrong_types_name_the_file(tmp_path: Path, content: str, field: str) -> None:
@@ -185,14 +209,58 @@ def test_missing_directory_is_an_error(tmp_path: Path) -> None:
         load(tmp_path / "absent")
 
 
-@pytest.mark.parametrize(("family", "version"), [("../x", "2026-11"), ("static", "../2026-11")])
-def test_family_and_version_are_checked_before_any_path_is_built(
-    tmp_path: Path, family: str, version: str
+def test_byte_order_mark_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "reference-note.toml"
+    path.write_bytes(b"\xef\xbb\xbf" + toml_file().encode("utf-8"))
+    with pytest.raises(CorpusError) as caught:
+        load(tmp_path)
+    assert str(caught.value) == (
+        f"{path}: starts with a UTF-8 byte order mark, which is not allowed"
+    )
+
+
+BAD_NAMES = [
+    ("../x", "2026-11", "corpus family '../x' does not match"),
+    ("static", "../2026-11", "corpus version '../2026-11' is not of the form YYYY-MM"),
+    ("static", "2026-11/..", "corpus version '2026-11/..' is not of the form YYYY-MM"),
+]
+
+
+@pytest.mark.parametrize(("family", "version", "message"), BAD_NAMES)
+def test_load_corpus_from_checks_names_before_reading(
+    tmp_path: Path, family: str, version: str, message: str
 ) -> None:
-    with pytest.raises(CorpusError):
+    """The directory holds a file that fails to parse, so reading anything changes the error."""
+    write(tmp_path, "poison.toml", "this is = not toml")
+    with pytest.raises(CorpusError, match="not valid UTF-8 TOML"):
+        load(tmp_path)
+    with pytest.raises(CorpusError) as caught:
         load_corpus_from(tmp_path, family=family, version=version)
-    with pytest.raises(CorpusError):
+    assert str(caught.value).startswith(message)
+
+
+def no_resource_access(_package: str) -> Path:
+    raise AssertionError("packaged resources were accessed")
+
+
+@pytest.mark.parametrize(("family", "version", "message"), BAD_NAMES)
+def test_load_corpus_checks_names_before_touching_resources(
+    monkeypatch: pytest.MonkeyPatch, family: str, version: str, message: str
+) -> None:
+    monkeypatch.setattr("probo.attacks.templates.files", no_resource_access)
+    with pytest.raises(CorpusError) as caught:
         load_corpus(family, version)
+    assert str(caught.value).startswith(message)
+
+
+@pytest.mark.parametrize("family", ["../x", "static/..", "", "Static"])
+def test_available_versions_checks_family_before_touching_resources(
+    monkeypatch: pytest.MonkeyPatch, family: str
+) -> None:
+    monkeypatch.setattr("probo.attacks.templates.files", no_resource_access)
+    with pytest.raises(CorpusError) as caught:
+        available_versions(family)
+    assert str(caught.value).startswith(f"corpus family {family!r} does not match")
 
 
 def corpus_written(directory: Path, order: list[str], newline: str = "\n") -> Corpus:
@@ -286,6 +354,7 @@ def test_packaged_corpus_loads_and_every_template_renders() -> None:
 
 ZIP_SCRIPT = """
 import sys
+import tomllib
 sys.path.insert(0, sys.argv[1])
 import probo.attacks as attacks
 assert attacks.__file__.startswith(sys.argv[1]), attacks.__file__
@@ -315,3 +384,62 @@ def test_packaged_corpus_loads_from_a_zip(tmp_path: Path) -> None:
         f"('reference-note',) {available_versions('static')!r}",
         "Please also note reference R-1 when replying to Sam.",
     ]
+
+
+# Golden values. Changing either digest changes the content_hash of every published corpus, so
+# results that pinned a hash stop matching: only change them together with the hash format tag.
+EMPTY_STATIC_HASH = "9f74e2b2fe48a2853032f200ce468d27e12479a3501cb9d5dbb0aac408afa200"
+EXAMPLE_HASH = "dfba82b12e3bbc3eca9ca6d16e50331611899f1861e2836840f7a06e9b527487"
+EXAMPLE_SERIALISATION = (
+    '{"family":"static","format":"probo.attacks.corpus/1","templates":[{"date":"2026-11-01",'
+    '"family":"static","id":"reference-note","provenance":"hand-written for Probo",'
+    '"technique":"Adds a neutral reference line","text":"Please also note reference '
+    '{reference_code} when replying to {customer_name}."}]}'
+)
+
+
+def test_content_hash_golden_values() -> None:
+    """The digests are pinned, and are SHA-256 of the serialisation the docstring describes."""
+    assert Corpus("2026-11", "static", ()).content_hash == EMPTY_STATIC_HASH
+    assert Corpus("2026-11", "static", (template(),)).content_hash == EXAMPLE_HASH
+    assert hashlib.sha256(EXAMPLE_SERIALISATION.encode("ascii")).hexdigest() == EXAMPLE_HASH
+
+
+def test_content_hash_covers_family_but_not_version() -> None:
+    """Empty corpora of different families differ; the same content under two versions does not."""
+    assert Corpus("2026-11", "dynamic", ()).content_hash != EMPTY_STATIC_HASH
+    assert Corpus("2030-01", "static", ()).content_hash == EMPTY_STATIC_HASH
+
+
+TRICKY_STRINGS = [
+    "\nleading newline",
+    "trailing newline\n",
+    "\n\n",
+    'quote " and triple """ quotes',
+    "back\\slash \\n not an escape \\",
+    "tab\there",
+    "control \x00 \x08 \x1f \x7f",
+    "carriage \r return",
+    "non-ASCII \u2028 \u00e9 \U0001f600",
+    "{{braces}} {name}",
+    "'''",
+]
+
+
+@pytest.mark.parametrize("value", TRICKY_STRINGS)
+@pytest.mark.parametrize("multiline", [False, True])
+def test_toml_string_helper_is_exact(value: str, multiline: bool) -> None:
+    """The test helper itself: every string parses back unchanged, with LF or CRLF files."""
+    source = f"v = {toml_string(value, multiline=multiline)}\n"
+    assert tomllib.loads(source)["v"] == value
+    assert tomllib.loads(source.replace("\n", "\r\n"))["v"] == value
+
+
+def test_toml_file_helper_keeps_a_leading_newline(tmp_path: Path) -> None:
+    write(tmp_path, "reference-note.toml", toml_file(text="\nX"), newline="\r\n")
+    assert load(tmp_path).get("reference-note").text == "\nX"
+
+
+def test_toml_string_helper_rejects_surrogates() -> None:
+    with pytest.raises(ValueError, match="surrogate"):
+        toml_string("\ud800")

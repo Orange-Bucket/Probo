@@ -30,15 +30,16 @@ def test_fields_and_placeholders() -> None:
 
 
 def test_model_is_frozen_and_round_trips() -> None:
-    """Assignment fails; dumps validate back; render re-checks a copy that skipped validation."""
+    """Assignment fails; dumps validate back; render re-checks an unvalidated instance."""
     loaded = template()
     for name in Template.model_fields:
         with pytest.raises(ValidationError, match="frozen"):
             setattr(loaded, name, "changed")
     assert Template.model_validate(loaded.model_dump()) == loaded
     assert Template.model_validate_json(loaded.model_dump_json()) == loaded
+    unvalidated = Template.model_construct(None, **{**FIELDS, "text": "{0.__class__}"})
     with pytest.raises(ValueError, match="invalid brace syntax"):
-        loaded.model_copy(update={"text": "{0.__class__}"}).render({})
+        unvalidated.render({})
     with pytest.raises(ValidationError, match="Extra inputs"):
         Template.model_validate({**FIELDS, "placeholders": ["customer_name"]})
 
@@ -134,6 +135,15 @@ def test_long_fragment_is_truncated() -> None:
         ("technique", "   "),
         ("technique", "two\nlines"),
         ("technique", "carriage\rreturn"),
+        ("technique", "trailing newline\n"),
+        ("technique", "line\u2028separator"),
+        ("technique", "paragraph\u2029separator"),
+        ("technique", "next\x85line"),
+        ("technique", "vertical\x0btab"),
+        ("technique", "form\x0cfeed"),
+        ("technique", "file\x1cseparator"),
+        ("technique", "group\x1dseparator"),
+        ("technique", "record\x1eseparator"),
         ("provenance", ""),
         ("provenance", " \t"),
         ("text", ""),
@@ -158,3 +168,30 @@ def test_unknown_field_is_rejected() -> None:
     """Extra fields are forbidden."""
     with pytest.raises(ValidationError, match="Extra inputs"):
         Template.model_validate({**FIELDS, "author": "someone"})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("id", "../Bad Id"),
+        ("family", "Bad Family"),
+        ("technique", "two\nlines"),
+        ("provenance", " "),
+        ("date", "2026-11-01"),
+        ("text", "carriage\rreturn"),
+        ("text", "{0}"),
+    ],
+)
+def test_model_copy_revalidates(field: str, value: object) -> None:
+    """Unlike pydantic's default, ``model_copy(update=...)`` applies every field rule."""
+    with pytest.raises(ValidationError):
+        template().model_copy(update={field: value})
+
+
+def test_model_copy_applies_valid_updates() -> None:
+    copied = template().model_copy(update={"text": "Hi {who}."}, deep=True)
+    assert (copied.text, copied.placeholders, copied.id) == (
+        "Hi {who}.",
+        ("who",),
+        "reference-note",
+    )

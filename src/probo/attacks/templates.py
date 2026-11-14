@@ -16,7 +16,7 @@ from datetime import date as Date
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from itertools import pairwise
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -32,13 +32,18 @@ PLACEHOLDER_NAME = r"[a-z_][a-z0-9_]*"
 _TOKEN = re.compile(r"\{\{|\}\}|\{(" + PLACEHOLDER_NAME + r")\}|[{}]")
 _FRAGMENT_LIMIT = 40
 _HASH_FORMAT = "probo.attacks.corpus/1"
+_BOM = b"\xef\xbb\xbf"
 
 Name = Annotated[str, Field(pattern=NAME_PATTERN)]
 NonEmpty = Annotated[str, Field(min_length=1)]
 
 
 class CorpusError(ValueError):
-    """A corpus directory or one of its template files is invalid; the message names the file."""
+    """A corpus, its directory or one of its template files is invalid.
+
+    An error about a template file starts with that file's path; errors about a ``Corpus``
+    being constructed name the offending template id, family or version instead.
+    """
 
 
 def _split(template_id: str, text: str) -> tuple[list[str], list[str]]:
@@ -81,9 +86,9 @@ class Template(BaseModel):
 
     ``text`` holds ``{name}`` placeholders (name matching ``[a-z_][a-z0-9_]*``) and ``{{`` /
     ``}}`` for literal braces. Every other use of a brace is rejected on validation, so a
-    template that loads can always be rendered by ``render``. ``render`` parses ``text`` again
-    itself, so even an instance that skipped validation (``model_construct``, or pydantic's
-    unvalidated ``model_copy(update=...)``) never substitutes anything but ``{name}``.
+    template that loads can always be rendered by ``render``. ``model_copy`` re-validates.
+    ``render`` parses ``text`` again itself, so even an instance that skipped validation
+    (``model_construct``) never substitutes anything but ``{name}``.
     """
 
     model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
@@ -93,7 +98,7 @@ class Template(BaseModel):
     family: Name
     """The corpus family the template belongs to, for example ``static``."""
     technique: NonEmpty
-    """One-line description of what the text does."""
+    """One-line description of what the text does (no line boundary of ``str.splitlines``)."""
     provenance: NonEmpty
     """Where the text came from, for example ``hand-written for Probo``."""
     date: Date
@@ -106,12 +111,21 @@ class Template(BaseModel):
         for name in ("technique", "provenance", "text"):
             if not getattr(self, name).strip():
                 raise ValueError(f"template {self.id!r}: {name} must not be blank")
-        if "\n" in self.technique or "\r" in self.technique:
+        if self.technique.splitlines() != [self.technique]:
             raise ValueError(f"template {self.id!r}: technique must be a single line")
         if "\r" in self.text:
             raise ValueError(f"template {self.id!r}: text must use \\n line endings, not \\r")
         _split(self.id, self.text)
         return self
+
+    def model_copy(self, *, update: Mapping[str, Any] | None = None, deep: bool = False) -> Self:
+        """Return a copy with ``update`` applied, fully re-validated (unlike pydantic's default).
+
+        ``deep`` is accepted for compatibility; every field is immutable, so it changes nothing.
+        """
+        data: dict[str, Any] = {name: getattr(self, name) for name in type(self).model_fields}
+        data.update(update or {})
+        return self.model_validate(data)
 
     @property
     def placeholders(self) -> tuple[str, ...]:
@@ -145,8 +159,10 @@ class Template(BaseModel):
 class Corpus:
     """The templates of one family at one dated version, sorted by id.
 
-    Construction sorts ``templates`` by id and rejects duplicate ids, templates of another
-    family, and a ``version`` or ``family`` that does not match its pattern.
+    Construction re-validates every template (so a copy made with ``model_construct`` that
+    breaks the schema is rejected), sorts them by id, and raises ``CorpusError`` for an invalid
+    template, a duplicate id, a template of another family, or a ``version`` or ``family`` that
+    does not match its pattern.
     """
 
     version: str
@@ -158,13 +174,20 @@ class Corpus:
 
     def __post_init__(self) -> None:
         _check_family_and_version(self.family, self.version)
-        ordered = tuple(sorted(self.templates, key=lambda template: template.id))
+        validated: list[Template] = []
+        for template in self.templates:
+            data = {name: getattr(template, name, None) for name in Template.model_fields}
+            try:
+                validated.append(Template.model_validate(data))
+            except ValidationError as error:
+                raise CorpusError(f"corpus has an invalid template: {error}") from error
+        ordered = tuple(sorted(validated, key=lambda template: template.id))
         for previous, template in pairwise(ordered):
             if previous.id == template.id:
-                raise ValueError(f"corpus has duplicate template id {template.id!r}")
+                raise CorpusError(f"corpus has duplicate template id {template.id!r}")
         for template in ordered:
             if template.family != self.family:
-                raise ValueError(
+                raise CorpusError(
                     f"template {template.id!r} has family {template.family!r}, "
                     f"not the corpus family {self.family!r}"
                 )
@@ -193,14 +216,19 @@ class Corpus:
 
     @property
     def content_hash(self) -> str:
-        """SHA-256 hex digest of the canonical JSON of every template's stored fields.
+        """SHA-256 hex digest of the corpus family and every template's stored fields.
 
-        The serialisation lists the templates sorted by id, each as its stored fields
-        (``date`` in ISO form; ``placeholders`` is derived and not included) with sorted
-        keys and ASCII escapes, so it depends only on template content: not on file order,
-        file line endings (``tomllib`` reads CRLF as LF) or the corpus ``version``.
+        Hashed: the UTF-8 (here pure ASCII) bytes of ``json.dumps`` with ``sort_keys=True``,
+        ``ensure_ascii=True`` and ``separators=(",", ":")`` applied to
+        ``{"family": family, "format": "probo.attacks.corpus/1", "templates": [...]}``, where
+        the list holds each template's six stored fields, sorted by id, with ``date`` in ISO
+        form. ``placeholders`` is derived from ``text`` and not included; neither is the
+        corpus ``version``, so identical content under two versions has one hash. The hash
+        therefore does not depend on file order, file names beyond the id, or file line
+        endings (``tomllib`` reads CRLF as LF).
         """
         payload = {
+            "family": self.family,
             "format": _HASH_FORMAT,
             "templates": [template.model_dump(mode="json") for template in self.templates],
         }
@@ -223,8 +251,11 @@ def _check_family_and_version(family: str, version: str) -> None:
 
 
 def _read_template(entry: Traversable) -> Template:
+    raw = entry.read_bytes()
+    if raw.startswith(_BOM):
+        raise CorpusError(f"{entry}: starts with a UTF-8 byte order mark, which is not allowed")
     try:
-        data = tomllib.loads(entry.read_bytes().decode("utf-8"))
+        data = tomllib.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise CorpusError(f"{entry}: not valid UTF-8 TOML: {error}") from error
     problems: list[str] = []

@@ -7,13 +7,14 @@ file, including this README. A result that used this corpus records the version 
 
 ## File format
 
-Each file is UTF-8 TOML with exactly these six keys, all required:
+Each file is UTF-8 TOML without a byte order mark (a file that starts with one is rejected),
+with exactly these six keys, all required:
 
 | Key          | Type       | Rule                                                              |
 |--------------|------------|-------------------------------------------------------------------|
 | `id`         | string     | Lowercase letters and digits joined by single hyphens; must equal the file name without `.toml` |
 | `family`     | string     | Must be `static`, the name of the family directory               |
-| `technique`  | string     | One-line description of what the text does; not blank            |
+| `technique`  | string     | One-line description of what the text does; not blank; no line break of any kind (including U+2028, U+0085, vertical tab and form feed) |
 | `provenance` | string     | Where the text came from; not blank                               |
 | `date`       | local date | A bare TOML date such as `2026-11-01`, not a quoted string or a datetime |
 | `text`       | string     | The template text; not blank; no `\r` escapes (CRLF file line endings are fine, TOML reads them as LF) |
