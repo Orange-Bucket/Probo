@@ -1,12 +1,12 @@
-# Add files here to ignore them from prettier formatting
+# Prettier formats only the JavaScript side of the workspace: the apps and the root
+# JavaScript, TypeScript and Nx configuration. Python, docs, CI files and published
+# findings are formatted by their own tools, or not at all.
+/*
+!/apps
+!/*.mjs
+!/*.mts
+!/tsconfig.base.json
+!/nx.json
+!/package.json
 /dist
 /coverage
-/.nx/cache
-/.nx/workspace-data
-pnpm-lock.yaml
-# Python package, its virtualenv, lockfile and published findings.
-*.py
-.venv
-uv.lock
-/findings
-*.eval

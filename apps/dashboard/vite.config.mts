@@ -7,11 +7,11 @@ import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/apps/dashboard',
-  server:{
+  server: {
     port: 4200,
     host: 'localhost',
   },
-  preview:{
+  preview: {
     port: 4300,
     host: 'localhost',
   },
@@ -32,7 +32,7 @@ export default defineConfig(() => ({
     },
   },
   define: {
-    'import.meta.vitest': undefined
+    'import.meta.vitest': undefined,
   },
   test: {
     name: 'dashboard',
@@ -45,6 +45,6 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: '../../coverage/apps/dashboard',
       provider: 'v8' as const,
-    }
+    },
   },
 }));
