@@ -44,14 +44,21 @@ then lists every field it touches.
 
 What it does not detect
 -----------------------
-- Any truncation of the hex part: 31 of its 32 characters, or any other proper prefix or
-  suffix, with or without the prefix; the prefix without the hex.
+- A truncated hex part (31 of its 32 characters, or any other proper prefix or suffix, with or
+  without the prefix), or the prefix without the hex, unless the neighbouring text happens to
+  supply exactly the missing characters (see the caveat at the end).
 - ASCII letters or digits inserted between the hex characters (inserted into the prefix only,
   they leave a ``PREFIX_STRIPPED`` match); look-alike characters (Cyrillic letters, full-width
   digits); case changes outside ASCII.
 - Other encodings: rot13 and other ciphers, HTML or JSON character escapes, hex written with
   ``0x`` or ``\\x`` before each byte, base32, base85, uuencode, compression, encryption, and
-  nested encodings (base64 of base64, base64 or hex of a case-changed or separated token).
+  nested encodings such as base64 of base64.
+- Base64 or hex of a token changed inside its hex part (case changed or separators inserted
+  between the hex characters). A change confined to the prefix (``probo-canary-<hex>``,
+  ``PROBO CANARY <hex>``) is still detected, through the encoded hex part.
+- Hex dumps with offset and character columns (``hexdump -C``, ``xxd`` without ``-p``): the
+  offsets break the run of hex digits every 16 bytes. Plain hex such as ``xxd -p`` output,
+  including its line wrapping, is detected.
   Percent-encoding is detected only where it leaves the hex characters readable: every byte
   escaped (as ``HEX``), only the hyphens escaped (``%2D``, as ``PREFIX_STRIPPED``), or nothing
   escaped, which is what standard URL encoders do with a token (``VERBATIM``).
@@ -74,12 +81,17 @@ handful of needles searched. These figures assume the hex part is unknown to who
 text, which holds for any text that did not copy it, directly or indirectly, from the planted
 record.
 
-One consequence of ignoring separators is accepted deliberately: a hex part truncated by k
-characters and followed, after only separators, by text that starts with exactly those k
-characters cannot be told apart from a separated token, and matches. That needs the text to
-have copied the other 32 - k characters from the record. For random following text the chance
-is 16**-k; it is higher when the missing characters are letters a-f that begin an ordinary
-word (a token missing a final ``a`` followed by `` and``).
+One consequence of matching runs of characters regardless of their neighbours is accepted
+deliberately, and it works in both directions: a hex part missing k characters at its end,
+followed (after only separators, possibly in the next field) by text that starts with exactly
+those characters, or missing k characters at its start, preceded by text that ends with them,
+cannot be told apart from the whole hex part, and matches. For example, if the hex part starts
+with ``f``, then ``["ref " + hex[1:]]`` and ``["re: chef", hex[1:]]`` both match as
+``PREFIX_STRIPPED``. The same holds for the ``HEX`` form, where neighbouring hex digits can
+complete a truncated hex encoding. That needs the text to have copied the other 32 - k
+characters from the record. For random neighbouring text the chance is 16**-k; it is higher
+when the missing characters are letters a-f that end or begin an ordinary word (``chef``,
+``and``).
 """
 
 import base64
@@ -151,7 +163,9 @@ def _encode_item(value: str | int) -> bytes:
             raise TypeError("canary inputs must be str or int, not bool")
         case int():
             tag = b"i"
-            # Minimal-length two's complement; the length prefix makes it injective.
+            # Two's complement in (bit_length + 8) // 8 bytes: one byte more than minimal for
+            # -128, -32768 and so on, and unambiguous with the length prefix. Kept as is, because
+            # changing it would change every token.
             payload = value.to_bytes((value.bit_length() + 8) // 8, "big", signed=True)
         case str():
             tag = b"s"
@@ -172,8 +186,16 @@ def derive_canary(seed: int, *parts: str | int) -> str:
     ``("a", "bc")``, ``"1"`` and ``1``, or ``("a",)`` and ``("a", "")`` give different tokens.
 
     Raises:
-        TypeError: If the seed or a part is not an int or str (``bool`` is refused).
+        TypeError: If the seed is not an int, or a part is not an int or str (``bool`` is
+            refused for both).
     """
+    match seed:
+        case bool():
+            raise TypeError("the canary seed must be an int, not bool")
+        case int():
+            pass
+        case _:
+            raise TypeError(f"the canary seed must be an int, not {type(seed).__name__}")
     hasher = hashlib.sha256(_DOMAIN)
     for item in (seed, *parts):
         hasher.update(_encode_item(item))

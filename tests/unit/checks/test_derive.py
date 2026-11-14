@@ -49,6 +49,23 @@ def test_derivation_is_pinned_to_its_documented_encoding() -> None:
     assert expected == "PROBO-CANARY-f8ddf6342275295b46aca4044ec79056"
 
 
+def test_negative_int_encoding_is_pinned() -> None:
+    """Negative ints are signed two's complement in (bit_length + 8) // 8 bytes.
+
+    -128 takes two bytes (ff80), one more than minimal; the encoding is kept for stability.
+    """
+
+    def item(tag: bytes, payload: bytes) -> bytes:
+        return tag + len(payload).to_bytes(8, "big") + payload
+
+    data = b"probo-canary-v1\x00" + b"".join(
+        [item(b"i", b"\xf9"), item(b"s", b"sample-1"), item(b"i", b"\xff"), item(b"i", b"\xff\x80")]
+    )
+    expected = CANARY_PREFIX + hashlib.sha256(data).hexdigest()[:32]
+    assert derive_canary(-7, "sample-1", -1, -128) == expected
+    assert expected == "PROBO-CANARY-7fd6cdad57c2e6c0b2662b7e9fcecb66"
+
+
 def test_distinct_inputs_give_distinct_tokens() -> None:
     """A thousand distinct input tuples give a thousand distinct tokens."""
     tokens = {derive_canary(seed, *parts) for seed, parts in INPUTS}
@@ -63,7 +80,10 @@ def test_distinct_inputs_give_distinct_tokens() -> None:
         ((0, ""), (0,)),
         ((0, "1"), (0, 1)),
         ((1,), (0, 1)),
+        ((0, 1), (0, -1)),
+        ((1,), (-1,)),
         ((0, -1), (0, 255)),
+        ((0, -128), (0, 128)),
         ((0, 2**200), (0, 2**200 + 1)),
         ((0, "a\x00b"), (0, "a", "b")),
         ((0, "\ud800"), (0, "\udfff")),
@@ -76,13 +96,21 @@ def test_ambiguous_concatenations_give_different_tokens(
     assert derive_canary(*left) != derive_canary(*right)
 
 
-@pytest.mark.parametrize("bad", [True, 1.5, None, b"bytes"])
+@pytest.mark.parametrize("bad", [True, False, 1.5, None, b"bytes"])
 def test_non_int_or_str_inputs_are_refused(bad: object) -> None:
     """Only str and int are accepted, and bool is refused so it cannot alias 0 or 1."""
     with pytest.raises(TypeError):
         derive_canary(0, cast("str", bad))
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="seed"):
         derive_canary(cast("int", bad))
+
+
+@pytest.mark.parametrize("bad", ["0", "", "seed"])
+def test_a_str_seed_is_refused(bad: str) -> None:
+    """The seed must be an int; a str is accepted only as a part."""
+    with pytest.raises(TypeError, match="seed must be an int"):
+        derive_canary(cast("int", bad))
+    assert is_canary(derive_canary(0, bad))
 
 
 @pytest.mark.parametrize(
