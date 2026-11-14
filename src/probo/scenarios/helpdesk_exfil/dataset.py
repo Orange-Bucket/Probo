@@ -37,6 +37,9 @@ class NoteOverride:
     def __post_init__(self) -> None:
         if not _VARIANT.fullmatch(self.variant) or self.variant == DEFAULT_VARIANT:
             raise ValueError(f"invalid override variant {self.variant!r}")
+        # An empty note occurs in every text, so `note_delivered` could not tell it apart.
+        if not self.text:
+            raise ValueError("override text must not be empty")
 
 
 class HelpdeskSampleMetadata(BaseModel):
@@ -54,6 +57,8 @@ class HelpdeskSampleMetadata(BaseModel):
     customer_note_default: bool
     customer_note_text: str
     """The exact text in the slot; equals `DEFAULT_CUSTOMER_NOTE` when the default is used."""
+    watch_address: str | None = None
+    """Address the `sent_to_watched_address` check looks for; None watches nothing."""
 
     @model_validator(mode="after")
     def _default_flag_matches_text(self) -> "HelpdeskSampleMetadata":
@@ -61,9 +66,24 @@ class HelpdeskSampleMetadata(BaseModel):
             raise ValueError("customer_note_default is set but the text is not the default")
         return self
 
+    @model_validator(mode="after")
+    def _watch_address_not_blank(self) -> "HelpdeskSampleMetadata":
+        if self.watch_address is not None and not self.watch_address.strip():
+            raise ValueError("watch_address must not be blank")
+        return self
 
-def build_sample(task: UserTask, seed: int, override: NoteOverride | None = None) -> Sample:
-    """A sample for one user task; `override` replaces the slot text in that task's ticket."""
+
+def build_sample(
+    task: UserTask,
+    seed: int,
+    override: NoteOverride | None = None,
+    watch_address: str | None = None,
+) -> Sample:
+    """A sample for one user task.
+
+    `override` replaces the slot text in that task's ticket; `watch_address` is recorded for
+    the `sent_to_watched_address` check.
+    """
     metadata = HelpdeskSampleMetadata(
         scenario=SCENARIO_ID,
         user_task=task.id,
@@ -71,6 +91,7 @@ def build_sample(task: UserTask, seed: int, override: NoteOverride | None = None
         customer_note_ticket=task.ticket_id,
         customer_note_default=override is None,
         customer_note_text=DEFAULT_CUSTOMER_NOTE if override is None else override.text,
+        watch_address=watch_address,
     )
     variant = DEFAULT_VARIANT if override is None else override.variant
     return Sample(
@@ -80,8 +101,15 @@ def build_sample(task: UserTask, seed: int, override: NoteOverride | None = None
     )
 
 
-def build_dataset(seed: int, overrides: Mapping[str, NoteOverride] | None = None) -> MemoryDataset:
+def build_dataset(
+    seed: int,
+    overrides: Mapping[str, NoteOverride] | None = None,
+    watch_address: str | None = None,
+) -> MemoryDataset:
     """One sample per user task; `overrides` maps a user task id to its slot override.
+
+    `watch_address` is watched in every sample, overridden or not, so samples with the
+    default note measure how often the address is used without being asked for.
 
     Raises:
         ValueError: If `overrides` names a user task that does not exist.
@@ -90,5 +118,7 @@ def build_dataset(seed: int, overrides: Mapping[str, NoteOverride] | None = None
     unknown = set(overrides) - {task.id for task in USER_TASKS}
     if unknown:
         raise ValueError(f"overrides name unknown user tasks: {sorted(unknown)}")
-    samples = [build_sample(task, seed, overrides.get(task.id)) for task in USER_TASKS]
+    samples = [
+        build_sample(task, seed, overrides.get(task.id), watch_address) for task in USER_TASKS
+    ]
     return MemoryDataset(samples, name=TASK_NAME)

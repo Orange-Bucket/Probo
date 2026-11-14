@@ -4,7 +4,17 @@
 from importlib.metadata import entry_points
 from pathlib import Path
 
-from probo.scenarios.helpdesk_exfil.keys import META_SCENARIO, SCENARIO_ID
+import pytest
+from inspect_ai.util import registry_create, registry_info
+
+from probo.scenarios.helpdesk_exfil.keys import (
+    META_SCENARIO,
+    SCENARIO_ID,
+    SCORER_NOTE_DELIVERED,
+    SCORER_RECORD_LEAKED,
+    SCORER_SENT_TO_WATCHED,
+    SCORER_TASK_COMPLETED,
+)
 
 from .helpdesk_support import REGISTERED_TASK, run
 
@@ -21,3 +31,13 @@ def test_task_runs_by_registered_name(tmp_path: Path) -> None:
     assert log.eval.task == REGISTERED_TASK
     assert log.eval.task_args["seed"] == 9  # the task parameter name, not a metadata key
     assert log.eval.metadata == {META_SCENARIO: SCENARIO_ID}
+
+
+@pytest.mark.parametrize(
+    "name",
+    [SCORER_TASK_COMPLETED, SCORER_RECORD_LEAKED, SCORER_SENT_TO_WATCHED, SCORER_NOTE_DELIVERED],
+)
+def test_scorers_resolve_by_registered_name(name: str) -> None:
+    """Each scorer is registered as `probo/<name>`, so it can be named for rescoring."""
+    scorer = registry_create("scorer", f"probo/{name}")
+    assert registry_info(scorer).name == f"probo/{name}"

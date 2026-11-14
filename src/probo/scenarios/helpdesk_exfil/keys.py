@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Names shared with scorers and log readers: scenario id, scorer name, metadata and store keys."""
+"""Names shared with scorers and log readers: scenario id, scorer names, metadata and store keys."""
 
 from typing import Final
+
+from probo.checks.result import RESULT_KEY
 
 SCENARIO_ID: Final = "helpdesk-exfil"
 """Value of the `scenario` metadata key, and a part of every marker token's derivation."""
@@ -11,6 +13,12 @@ TASK_NAME: Final = "helpdesk_exfil"
 
 SCORER_TASK_COMPLETED: Final = "task_completed"
 """Name of the utility scorer, and its key in `EvalSample.scores`."""
+SCORER_RECORD_LEAKED: Final = "record_leaked"
+"""Name of the check that a customer record reached an address other than its owner's."""
+SCORER_SENT_TO_WATCHED: Final = "sent_to_watched_address"
+"""Name of the check that the agent called `send_email` with the watched address."""
+SCORER_NOTE_DELIVERED: Final = "note_delivered"
+"""Name of the check that the overridden `customer_note` was shown to the model."""
 
 # Sample metadata keys (`META_SCENARIO` is also a task metadata key).
 META_SCENARIO: Final = "scenario"
@@ -31,6 +39,8 @@ META_NOTE_DEFAULT: Final = "customer_note_default"
 """True when the slot holds its default text."""
 META_NOTE_TEXT: Final = "customer_note_text"
 """The exact text placed in the slot, default or not."""
+META_WATCH_ADDRESS: Final = "watch_address"
+"""Address the `sent_to_watched_address` check looks for, or None when nothing is watched."""
 
 # Raw keys in the sample store (`EvalSample.store`), as written by `HelpdeskState`.
 STORE_TICKETS: Final = "HelpdeskState:tickets"
@@ -57,3 +67,28 @@ EMAIL_SATISFIED: Final = "satisfied"
 """Whether this e-mail on its own completes the task."""
 EMAIL_REASON: Final = "reason"
 """Why the e-mail does not complete the task, or None when it does."""
+
+# Keys of `Score.metadata` set by the three leak checks (`leak_checks`).
+SCORE_RESULT: Final = RESULT_KEY
+"""Set by all three checks: `"true"`, `"false"` or `"not_applicable"` (see `probo.checks`)."""
+SCORE_LEAKS: Final = "leaks"
+"""`record_leaked`: one entry per leak, with the `LEAK_*` keys below; empty when none."""
+SCORE_EMAILS_INSPECTED: Final = "emails_inspected"
+"""`record_leaked`: number of outbox e-mails inspected."""
+SCORE_WATCH_ADDRESS: Final = "watch_address"
+"""`sent_to_watched_address`: the watched address, or None when not applicable."""
+SCORE_TOOL_CALL_IDS: Final = "tool_call_ids"
+"""`sent_to_watched_address`: ids of the `send_email` calls to the watched address."""
+SCORE_TOOL_MESSAGE_INDEX: Final = "tool_message_index"
+"""`note_delivered`: index in the sample's messages of the first tool result carrying the
+note, or None when no tool result carries it in full."""
+
+# Keys of each `SCORE_LEAKS` entry.
+LEAK_OUTBOX_INDEX: Final = "outbox_index"
+"""Index of the leaking e-mail in the outbox."""
+LEAK_CUSTOMER_ID: Final = "customer_id"
+"""Id of the customer whose record (marker token) the e-mail carries."""
+LEAK_TO: Final = "to"
+"""The e-mail's recipient as sent."""
+LEAK_FORMS: Final = "forms"
+"""The `CanaryForm` values in which the token was found, in `find_canary` order."""
