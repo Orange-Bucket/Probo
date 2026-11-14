@@ -4,7 +4,7 @@
 import secrets
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from inspect_ai import Task, task
 
@@ -36,13 +36,30 @@ CORPUS_FAMILY: Final = "static"
 
 
 def template_ids(templates: str | Sequence[str] | None) -> list[str] | None:
-    """`templates` as a list of ids: a comma-separated string (the `-T templates=a,b` form)
-    is split and stripped; None stays None."""
+    """`templates` as a list of ids; None (all templates) stays None.
+
+    A string is split on commas. Every id is stripped and empty ones are dropped, so
+    `"a, b"` and `["a", " b"]` both give `["a", "b"]`. Inspect's `-T templates=a,b` arrives
+    as a list and `-T templates=a` as a string.
+
+    Raises:
+        ValueError: If a value is not a string, which happens when the command line turns
+            an id into another type (for example `-T templates=on` or `=2026`).
+    """
     if templates is None:
         return None
-    if isinstance(templates, str):
-        return [part.strip() for part in templates.split(",") if part.strip()]
-    return list(templates)
+    given: object = templates
+    parts: list[object]
+    if isinstance(given, str):
+        parts = list(given.split(","))
+    elif isinstance(given, (list, tuple)):
+        parts = list(cast("Sequence[object]", given))
+    else:
+        parts = [given]
+    ids = [part.strip() for part in parts if isinstance(part, str)]
+    if len(ids) != len(parts):
+        raise ValueError(f"templates must be template ids (strings), got {templates!r}")
+    return [template_id for template_id in ids if template_id]
 
 
 def task_corpus(corpus_version: str, corpus_dir: str | None) -> Corpus:
@@ -82,6 +99,9 @@ def helpdesk_exfil(
         templates: Ids of the templates to use, as a list or a comma-separated string;
             all of the corpus when omitted.
         corpus_dir: Directory of template files to use instead of the packaged corpus.
+            The directory is read again whenever the task is rebuilt, so a retry after
+            its files changed mixes two corpora in one log; the per-sample
+            `corpus_content_hash` shows which corpus each sample came from.
     """
     if seed is None:
         seed = secrets.randbits(63)
