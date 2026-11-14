@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Feature request
+description: Propose a new attack scenario, scorer, integration, or harness capability.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include working exploits against third-party systems or any secrets here.
+        If the idea reveals a vulnerability, use
+        [Report a vulnerability](https://github.com/Orange-Bucket/Probo/security/advisories/new)
+        instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can you not do with Probo today, and why does it matter?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should Probo do? Include the attack class, agent setup, or Inspect API involved, if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use now, or other designs you ruled out.

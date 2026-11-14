@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Bug report
+description: Probo crashed, gave a wrong result, or behaved differently from its docs.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste API keys, tokens, or other secrets** in this issue, including inside
+        logs, `.eval` files, or environment dumps. Redact them first.
+
+        **Security vulnerabilities must not be reported here.** Use
+        [Report a vulnerability](https://github.com/Orange-Bucket/Probo/security/advisories/new)
+        instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      description: The exact command (or minimal code) that reproduces the problem.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Relevant error output or traceback, with secrets redacted.
+      render: text
+  - type: input
+    id: probo-version
+    attributes:
+      label: Probo version
+      placeholder: "0.1.0, or a commit SHA"
+    validations:
+      required: true
+  - type: input
+    id: inspect-version
+    attributes:
+      label: inspect-ai version
+      description: "Output of `uv run python -c \"import inspect_ai; print(inspect_ai.__version__)\"`"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.7"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04, macOS 15, Windows 11 with WSL2"
+    validations:
+      required: true
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker version
+      description: "Output of `docker version --format '{{.Server.Version}}'` and `docker compose version`, or \"not used\"."
+    validations:
+      required: true
