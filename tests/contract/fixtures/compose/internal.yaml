@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Two services on an internal-only network: they reach each other, nothing else.
+# `peer` is probed over TCP, so its healthcheck makes Inspect's `up --wait` hold the
+# sample until the server listens (interval/timeout/retries also size Inspect's timeout).
+services:
+  default:
+    image: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+    command: tail -f /dev/null
+    init: true
+    networks: [range]
+  peer:
+    image: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+    command: python -m http.server 8000
+    init: true
+    networks: [range]
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import socket; socket.create_connection(("127.0.0.1", 8000), timeout=1).close()
+      interval: 1s
+      timeout: 2s
+      retries: 30
+networks:
+  range:
+    internal: true
