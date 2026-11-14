@@ -12,6 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A React application under `apps/dashboard`, scaffolded with the Nx React generator (placeholder
   page only).
 
+### Changed
+
+- The Python package moved from the repository root to `packages/probo/` and is registered as
+  the Nx project `probo` with `lint`, `typecheck`, `test`, `test-docker` and `build` targets. The
+  root `pyproject.toml` is now a uv workspace that holds the development tools and the Ruff,
+  Pyright and pytest settings; `uv sync` and the `uv run` commands work from the root as before.
+  Build the package with `uv build --package probo`. The package has its own short README, which
+  becomes the long description in the wheel and sdist metadata, and the sdist no longer contains
+  `uv.lock` or the pytest settings, which now live in the root `pyproject.toml`: tests run from
+  an unpacked sdist do not enforce `--strict-markers` and warn about the unregistered `docker`
+  marker.
+
 ## [0.1.0] - 2026-11-14
 
 ### Added

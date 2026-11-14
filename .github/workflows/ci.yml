@@ -85,10 +85,10 @@ jobs:
       - name: Install
         run: uv sync --locked
       - name: Tests without Docker
-        run: uv run --no-sync pytest tests -m "not docker" -ra
+        run: uv run --no-sync pytest packages/probo/tests -m "not docker" -ra
       - name: Docker tests
         if: ${{ matrix.docker }}
-        run: uv run --no-sync pytest tests -m docker -ra --junitxml="$RUNNER_TEMP/docker-tests.xml"
+        run: uv run --no-sync pytest packages/probo/tests -m docker -ra --junitxml="$RUNNER_TEMP/docker-tests.xml"
       - name: Fail if any Docker test was skipped
         if: ${{ matrix.docker }}
         # conftest.py skips Docker tests when the daemon or image is unusable; here that
@@ -124,7 +124,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: Build sdist and wheel
-        run: uv build --out-dir "$RUNNER_TEMP/dist"
+        run: uv build --package probo --out-dir "$RUNNER_TEMP/dist"
       - name: Check distribution contents
         run: |
           uv run --no-project python -I - "$RUNNER_TEMP/dist" <<'EOF'
@@ -162,8 +162,9 @@ jobs:
           for name in sorted(wheel_files):
               if not name.startswith(("probo/", f"{dist_info}/")):
                   errors.append(f"wheel has unexpected file {name}")
+          # The sdist is built from packages/probo; hatchling adds the repository .gitignore.
           sdist_root_files = {".gitignore", "LICENSE", "NOTICE", "PKG-INFO", "README.md",
-                              "pyproject.toml", "uv.lock"}
+                              "pyproject.toml"}
           for name in sorted(sdist_files):
               if not name.startswith(("src/", "tests/")) and name not in sdist_root_files:
                   errors.append(f"sdist has unexpected file {name}")

@@ -197,6 +197,9 @@ importers:
       '@nx/web':
         specifier: 24.0.6
         version: 24.0.6(dc7a7d5f27f9594afa651487c39084f3)
+      '@nx/workspace':
+        specifier: 24.0.6
+        version: 24.0.6(@swc/core@1.15.47(@swc/helpers@0.5.24))
       '@swc/cli':
         specifier: ~0.8.1
         version: 0.8.2(@swc/core@1.15.47(@swc/helpers@0.5.24))(supports-color@7.2.0)
