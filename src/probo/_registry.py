@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Inspect entry point: importing this module registers Probo tasks and scorers."""
 
+from probo.judges.reply_only import reply_only_judge
 from probo.scenarios.helpdesk_exfil.leak_checks import (
     note_delivered,
     record_leaked,
@@ -13,6 +14,7 @@ __all__ = [
     "helpdesk_exfil",
     "note_delivered",
     "record_leaked",
+    "reply_only_judge",
     "sent_to_watched_address",
     "task_completed",
 ]
