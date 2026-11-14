@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_VERSION: "0.13.8"
+  FORCE_COLOR: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Check uv.lock is in sync with pyproject.toml
+        run: uv lock --check
+      - name: Install
+        run: uv sync --locked
+      - name: Ruff check
+        run: uv run --no-sync ruff check --output-format=github .
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check --diff .
+
+  types:
+    name: Types
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Install
+        run: uv sync --locked
+      - name: Pyright
+        run: uv run --no-sync pyright
+
+  tests:
+    name: Tests (Python ${{ matrix.python-version }}${{ matrix.docker && ', Docker' || '' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          # The Docker-marked contract tests run on the floor version only.
+          - python-version: "3.11"
+            docker: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install
+        run: uv sync --locked
+      - name: Tests without Docker
+        run: uv run --no-sync pytest tests -m "not docker" -ra
+      - name: Docker tests
+        if: ${{ matrix.docker }}
+        run: uv run --no-sync pytest tests -m docker -ra --junitxml="$RUNNER_TEMP/docker-tests.xml"
+      - name: Fail if any Docker test was skipped
+        if: ${{ matrix.docker }}
+        # conftest.py skips Docker tests when the daemon or image is unusable; here that
+        # must be an error, or a broken environment would hide a regression.
+        run: |
+          uv run --no-sync python -I - "$RUNNER_TEMP/docker-tests.xml" <<'EOF'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse(sys.argv[1]).getroot()
+          cases = list(root.iter("testcase"))
+          skipped = [c for c in cases if c.find("skipped") is not None]
+          print(f"Docker tests: {len(cases)} collected, {len(skipped)} skipped")
+          for case in skipped:
+              reason = case.find("skipped").get("message", "")
+              print(f"::error::Skipped {case.get('classname')}::{case.get('name')}: {reason}")
+          if not cases or skipped:
+              sys.exit(1)
+          EOF
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Build sdist and wheel
+        run: uv build --out-dir "$RUNNER_TEMP/dist"
+      - name: Check distribution contents
+        run: |
+          uv run --no-project python -I - "$RUNNER_TEMP/dist" <<'EOF'
+          import sys
+          import tarfile
+          import zipfile
+          from pathlib import Path
+
+          dist = Path(sys.argv[1])
+          (sdist,) = dist.glob("*.tar.gz")
+          (wheel,) = dist.glob("*.whl")
+          with tarfile.open(sdist) as tf:
+              # Drop the top-level "probo-<version>/" directory.
+              sdist_files = {n.partition("/")[2] for n in tf.getnames() if "/" in n}
+          with zipfile.ZipFile(wheel) as zf:
+              wheel_files = set(zf.namelist())
+          dist_info = next(n.split("/")[0] for n in wheel_files if ".dist-info/" in n)
+          with zipfile.ZipFile(wheel) as zf:
+              metadata = zf.read(f"{dist_info}/METADATA").decode()
+
+          errors = []
+
+          def require(files, name, label):
+              if name not in files:
+                  errors.append(f"{label} is missing {name}")
+
+          for name in ("probo/__init__.py", "probo/py.typed", f"{dist_info}/licenses/LICENSE"):
+              require(wheel_files, name, "wheel")
+          for name in ("PKG-INFO", "pyproject.toml", "LICENSE", "README.md",
+                       "src/probo/__init__.py", "src/probo/py.typed"):
+              require(sdist_files, name, "sdist")
+          if "License-Expression: Apache-2.0" not in metadata:
+              errors.append("wheel METADATA lacks License-Expression: Apache-2.0")
+          for name in sorted(wheel_files):
+              if not name.startswith(("probo/", f"{dist_info}/")):
+                  errors.append(f"wheel has unexpected file {name}")
+          sdist_root_files = {".gitignore", "LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "uv.lock"}
+          for name in sorted(sdist_files):
+              if not name.startswith(("src/", "tests/")) and name not in sdist_root_files:
+                  errors.append(f"sdist has unexpected file {name}")
+          for label, files in (("sdist", sdist_files), ("wheel", wheel_files)):
+              for name in sorted(files):
+                  if ".env" in name.rsplit("/", 1)[-1].lower():
+                      errors.append(f"{label} must not contain {name}")
+
+          print(f"{sdist.name}: {len(sdist_files)} files; {wheel.name}: {len(wheel_files)} files")
+          for error in errors:
+              print(f"::error::{error}")
+          sys.exit(1 if errors else 0)
+          EOF
