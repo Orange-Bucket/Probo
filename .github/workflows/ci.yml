@@ -196,6 +196,10 @@ jobs:
           cache: pnpm
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Dashboard lint, typecheck, test and build
+        env:
+          NX_DAEMON: "false"
+        run: pnpm nx run-many -t lint typecheck test build -p dashboard
       - name: List Nx projects
         env:
           NX_DAEMON: "false"

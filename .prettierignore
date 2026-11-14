@@ -1,0 +1,12 @@
+# Add files here to ignore them from prettier formatting
+/dist
+/coverage
+/.nx/cache
+/.nx/workspace-data
+pnpm-lock.yaml
+# Python package, its virtualenv, lockfile and published findings.
+*.py
+.venv
+uv.lock
+/findings
+*.eval
