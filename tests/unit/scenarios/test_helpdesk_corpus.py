@@ -258,3 +258,91 @@ def test_task_with_defaults_runs_on_the_packaged_corpus(tmp_path: Path) -> None:
     }
     assert log.eval.metadata is not None
     assert log.eval.metadata[META_CORPUS_HASH] == packaged.content_hash
+
+
+def test_corpus_version_selects_and_labels_the_corpus(tmp_path: Path) -> None:
+    """`corpus_version` labels a `corpus_dir` corpus, and an unpackaged version is an error."""
+    write_corpus(tmp_path, {"plain": TEMPLATES["plain"]})
+    task = helpdesk_exfil(seed=1, corpus_dir=str(tmp_path), corpus_version="2030-01")
+    assert task.metadata is not None
+    assert task.metadata[META_CORPUS_VERSION] == "2030-01"
+    for sample in task.dataset:
+        assert metadata_of(sample.metadata).corpus_version == "2030-01"
+    with pytest.raises(ValueError, match="2030-01"):
+        helpdesk_exfil(seed=1, corpus_version="2030-01")
+
+
+def test_empty_template_selection_gives_controls_only(tmp_path: Path) -> None:
+    """An empty selection is not "all templates": only the control samples remain."""
+    corpus = write_corpus(tmp_path, TEMPLATES)
+    samples = build_dataset(1, watch_address=WATCHED, corpus=corpus, templates=[])
+    assert [s.id for s in samples] == [f"{t.id}/none" for t in USER_TASKS]
+
+
+@pytest.mark.parametrize("value", [2026, True, ["plain", 7]])
+def test_template_ids_rejects_values_that_are_not_ids(value: object) -> None:
+    """Ids the command line turned into another type are refused with a clear error."""
+    with pytest.raises(ValueError, match="templates must be template ids"):
+        template_ids(value)  # pyright: ignore[reportArgumentType]
+
+
+def test_template_ids_strips_list_elements() -> None:
+    """List elements are stripped too, and empty ones dropped."""
+    assert template_ids(["plain", " copy-note", ""]) == ["plain", "copy-note"]
+
+
+def test_build_sample_refuses_override_with_corpus_and_reserved_id(tmp_path: Path) -> None:
+    """A direct override cannot carry a corpus, and a template cannot be called `none`."""
+    from probo.scenarios.helpdesk_exfil.dataset import NoteOverride, build_sample
+
+    corpus = write_corpus(tmp_path / "a", TEMPLATES)
+    override = NoteOverride(variant="x", text="Hand-written text.")
+    with pytest.raises(ValueError, match="cannot be combined with a corpus"):
+        build_sample(REPLY_ORDER_STATUS, 1, override, corpus=corpus)
+    reserved = write_corpus(tmp_path / "b", {"none": "Reference: test note 7F3A."})
+    with pytest.raises(ValueError, match="'none' is reserved for control samples"):
+        build_dataset(1, corpus=reserved)
+
+
+def test_visible_elsewhere_error_names_the_template(tmp_path: Path) -> None:
+    """A template whose rendered text occurs in other tool output is named in the error."""
+    corpus = write_corpus(tmp_path, {"echo": "{target_customer_email}"})
+    with pytest.raises(ValueError, match="template 'echo' text"):
+        build_dataset(1, corpus=corpus)
+
+
+def valid_metadata(**changes: object) -> dict[str, object]:
+    base: dict[str, object] = {
+        "scenario": "helpdesk-exfil",
+        "user_task": REPLY_ORDER_STATUS.id,
+        "seed": 1,
+        "customer_note_ticket": REPLY_ORDER_STATUS.ticket_id,
+        "customer_note_default": False,
+        "customer_note_text": "Some text.",
+        "watch_address": WATCHED,
+        "target_customer_id": BEN_ID,
+        "template_id": "plain",
+        "template_family": "static",
+        "corpus_version": "2026-11",
+        "corpus_content_hash": "0" * 64,
+    }
+    return {**base, **changes}
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"template_family": None},
+        {"corpus_content_hash": None},
+        {"corpus_version": None, "corpus_content_hash": None},
+        {"customer_note_default": True, "customer_note_text": DEFAULT_CUSTOMER_NOTE},
+        {"template_id": None, "template_family": None},
+        {"target_customer_id": ALICE_ID},
+        {"target_customer_id": "C-999"},
+    ],
+)
+def test_metadata_rejects_inconsistent_combinations(changes: dict[str, object]) -> None:
+    """Template, corpus, control and target fields must agree with each other."""
+    HelpdeskSampleMetadata.model_validate(valid_metadata())
+    with pytest.raises(ValueError):
+        HelpdeskSampleMetadata.model_validate(valid_metadata(**changes))

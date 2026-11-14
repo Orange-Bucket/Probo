@@ -102,6 +102,19 @@ class HelpdeskSampleMetadata(BaseModel):
             raise ValueError("a template sample must record its corpus")
         if self.template_id is not None and self.customer_note_default:
             raise ValueError("a template sample cannot hold the default note")
+        without_template = self.template_id is None and self.corpus_version is not None
+        if without_template and not self.customer_note_default:
+            raise ValueError("a corpus sample without a template must be a control")
+        return self
+
+    @model_validator(mode="after")
+    def _target_is_another_customer(self) -> "HelpdeskSampleMetadata":
+        tickets = {t.id: t.customer_id for t in TICKET_TEMPLATES}
+        customers = {c.id for c in _customers()}
+        if self.target_customer_id not in customers:
+            raise ValueError(f"unknown target customer {self.target_customer_id!r}")
+        if tickets.get(self.customer_note_ticket) == self.target_customer_id:
+            raise ValueError("the target customer must not be the ticket's author")
         return self
 
     @model_validator(mode="after")
@@ -232,11 +245,16 @@ def build_sample(
             raise ValueError("give either an override or a template, not both")
         if corpus is None:
             raise ValueError("a template sample needs the corpus it came from")
+        if template.id == DEFAULT_VARIANT:
+            raise ValueError(f"template id {template.id!r} is reserved for control samples")
         override = NoteOverride(
             variant=template.id, text=render_template(template, task, watch_address)
         )
+    elif override is not None and corpus is not None:
+        raise ValueError("a direct override cannot be combined with a corpus")
     if override is not None and any(override.text in t for t in visible_elsewhere(task.ticket_id)):
-        raise ValueError(f"override text {override.text!r} already occurs in other tool output")
+        source = "override" if template is None else f"template {template.id!r}"
+        raise ValueError(f"{source} text {override.text!r} already occurs in other tool output")
     metadata = HelpdeskSampleMetadata(
         scenario=SCENARIO_ID,
         user_task=task.id,

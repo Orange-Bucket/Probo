@@ -370,7 +370,8 @@ def test_packaged_corpus_loads_from_a_zip(tmp_path: Path) -> None:
     archive = tmp_path / "probo.zip"
     with zipfile.ZipFile(archive, "w") as zf:
         for path in sorted(package.rglob("*")):
-            if path.is_file() and "__pycache__" not in path.parts:
+            # Packaged templates are left out, so the result does not depend on the corpus.
+            if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".toml":
                 zf.write(path, Path("probo") / path.relative_to(package))
         zf.writestr("probo/attacks/corpus/static/2026-11/reference-note.toml", toml_file())
     result = subprocess.run(

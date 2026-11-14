@@ -13,6 +13,7 @@ import tomllib
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date as Date
+from functools import cached_property
 from importlib.resources import files
 from importlib.resources.abc import Traversable
 from itertools import pairwise
@@ -214,7 +215,7 @@ class Corpus:
     def __len__(self) -> int:
         return len(self.templates)
 
-    @property
+    @cached_property
     def content_hash(self) -> str:
         """SHA-256 hex digest of the corpus family and every template's stored fields.
 
