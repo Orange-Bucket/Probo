@@ -31,3 +31,17 @@ updates:
       tooling:
         patterns: ["*"]
         exclude-patterns: ["inspect-ai", "mcp"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    groups:
+      workspace-tooling:
+        patterns: ["*"]
