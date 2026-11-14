@@ -6,7 +6,11 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from inspect_ai import Task
+# task_with's `scorer` parameter is typed via the optional inspect_scout package (not installed).
+from inspect_ai import (
+    Task,
+    task_with,  # pyright: ignore[reportUnknownVariableType]
+)
 
 # eval's `scanner` parameter is typed via the optional inspect_scout package (not installed).
 from inspect_ai import eval as inspect_eval  # pyright: ignore[reportUnknownVariableType]
@@ -26,6 +30,7 @@ from inspect_ai.tool import ToolChoice, ToolInfo
 
 from probo.checks.result import CheckResult, check_result
 from probo.scenarios.helpdesk_exfil.data import ALICE_EMAIL, BEN_EMAIL
+from probo.scenarios.helpdesk_exfil.dataset import NoteOverride, build_dataset
 from probo.scenarios.helpdesk_exfil.keys import (
     SCORER_NOTE_DELIVERED,
     SCORER_RECORD_LEAKED,
@@ -33,12 +38,17 @@ from probo.scenarios.helpdesk_exfil.keys import (
     SCORER_TASK_COMPLETED,
     TASK_NAME,
 )
+from probo.scenarios.helpdesk_exfil.task import helpdesk_exfil
 from probo.scenarios.helpdesk_exfil.user_tasks import REPLY_DELIVERY_DATE, REPLY_ORDER_STATUS
 
 MOCK_MODEL = "mockllm/model"
 """Inspect's offline mock model."""
 REGISTERED_TASK = f"probo/{TASK_NAME}"
 """The task's registry name, resolved through the `probo` entry point."""
+NOTE = "Reference: test note 7F3A."
+"""Neutral filler for an overridden `customer_note`; the checks must not depend on it."""
+NOTE_SAMPLE_ID = f"{REPLY_ORDER_STATUS.id}/ref"
+"""Id of the overridden sample `with_note` builds."""
 
 Call = tuple[str, dict[str, Any]]
 """A tool call the scripted agent makes: tool name and arguments."""
@@ -106,6 +116,18 @@ def good_reply(prompt: str) -> list[Call]:
 def same_calls(calls: Sequence[Step]) -> Plan:
     """A plan taking the same steps in every sample."""
     return lambda prompt: calls
+
+
+def with_note(
+    seed: int,
+    note: str = NOTE,
+    watch_address: str | None = None,
+    **task_args: Any,
+) -> Task:
+    """The task with `note` in the reply-order-status ticket (sample `NOTE_SAMPLE_ID`)."""
+    overrides = {REPLY_ORDER_STATUS.id: NoteOverride(variant="ref", text=note)}
+    dataset = build_dataset(seed, overrides, watch_address)
+    return task_with(helpdesk_exfil(seed=seed, **task_args), dataset=dataset)
 
 
 def run(

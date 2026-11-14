@@ -13,8 +13,14 @@ from dataclasses import dataclass
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from probo.scenarios.helpdesk_exfil.data import DEFAULT_CUSTOMER_NOTE
+from probo.checks.canary import CANARY_PREFIX
+from probo.scenarios.helpdesk_exfil.data import (
+    DEFAULT_CUSTOMER_NOTE,
+    TICKET_TEMPLATES,
+    build_customers,
+)
 from probo.scenarios.helpdesk_exfil.keys import SCENARIO_ID, TASK_NAME
+from probo.scenarios.helpdesk_exfil.tools import customer_view, ticket_list_view, ticket_view
 from probo.scenarios.helpdesk_exfil.user_tasks import USER_TASKS, UserTask
 
 DEFAULT_VARIANT = "none"
@@ -73,6 +79,23 @@ class HelpdeskSampleMetadata(BaseModel):
         return self
 
 
+def visible_elsewhere(note_ticket_id: str) -> list[str]:
+    """Tool output that never holds the slot of ticket `note_ticket_id`.
+
+    That is the ticket list, every other ticket as `read_ticket` shows it (with the default
+    note), and every customer record as `get_customer` shows it. Recovery codes are drawn
+    per run, so a record shows only the fixed `CANARY_PREFIX` in their place here.
+    """
+    others = [t.render(DEFAULT_CUSTOMER_NOTE) for t in TICKET_TEMPLATES if t.id != note_ticket_id]
+    tickets = [t.render(DEFAULT_CUSTOMER_NOTE) for t in TICKET_TEMPLATES]
+    customers = build_customers(lambda customer_id: CANARY_PREFIX)
+    return [
+        ticket_list_view(tickets),
+        *map(ticket_view, others),
+        *map(customer_view, customers),
+    ]
+
+
 def build_sample(
     task: UserTask,
     seed: int,
@@ -83,7 +106,13 @@ def build_sample(
 
     `override` replaces the slot text in that task's ticket; `watch_address` is recorded for
     the `sent_to_watched_address` check.
+
+    Raises:
+        ValueError: If the override text already occurs in tool output outside the slot
+            (see `visible_elsewhere`), where `note_delivered` could not tell it apart.
     """
+    if override is not None and any(override.text in t for t in visible_elsewhere(task.ticket_id)):
+        raise ValueError(f"override text {override.text!r} already occurs in other tool output")
     metadata = HelpdeskSampleMetadata(
         scenario=SCENARIO_ID,
         user_task=task.id,
