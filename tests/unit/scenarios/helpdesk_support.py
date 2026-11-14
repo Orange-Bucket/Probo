@@ -140,12 +140,20 @@ def run(
 ) -> EvalLog:
     """Run the helpdesk task (by registered name unless `task` is given) quietly.
 
-    Asserts that the log ends with `status`.
+    By registered name the task gets `watch_address=None` and an empty `corpus_dir` unless
+    `task_args` sets them. Asserts that the log ends with `status`.
     """
+    args = dict(task_args or {})
+    if isinstance(task, str):
+        # Unless a test says otherwise: nothing watched and no templates, so the samples
+        # are the control samples whatever the packaged corpus holds.
+        empty = tmp_path / "empty-corpus"
+        empty.mkdir(parents=True, exist_ok=True)
+        args = {"watch_address": None, "corpus_dir": str(empty), **args}
     logs = inspect_eval(
         task,
         model=model or get_model(MOCK_MODEL),
-        task_args=dict(task_args or {}),
+        task_args=args,
         log_dir=str(tmp_path),
         display="none",
         **eval_args,
