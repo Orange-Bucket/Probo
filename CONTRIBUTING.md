@@ -57,6 +57,10 @@ pnpm nx run probo:build        # wheel and sdist into dist/packages/probo
 They need Node, pnpm (`pnpm install` once) and uv. The uv commands in the next section run the
 same tools without Nx.
 
+Run `uv` commands from the repository root. Inside `packages/probo`, `uv sync` syncs only the
+package, without the workspace's development group, and removes the tools from `.venv`; a bare
+`uv build` at the root fails because the root is not a package, so use `uv build --package probo`.
+
 ## Checks that must pass
 
 Every pull request must pass these locally and in CI:

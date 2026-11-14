@@ -20,7 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pyright and pytest settings; `uv sync` and the `uv run` commands work from the root as before.
   Build the package with `uv build --package probo`. The package has its own short README, which
   becomes the long description in the wheel and sdist metadata, and the sdist no longer contains
-  `uv.lock`.
+  `uv.lock` or the pytest settings, which now live in the root `pyproject.toml`: tests run from
+  an unpacked sdist do not enforce `--strict-markers` and warn about the unregistered `docker`
+  marker.
 
 ## [0.1.0] - 2026-11-14
 
