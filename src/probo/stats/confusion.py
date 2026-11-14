@@ -4,18 +4,21 @@
 from collections.abc import Iterable
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
+from probo.stats.base import FrozenModel
 from probo.stats.rate import Proportion, render_optional
+from probo.stats.wilson import critical_value
 
 _Count = Annotated[int, Field(ge=0)]
 
 
 def _proportion(successes: int, trials: int, level: float) -> Proportion | None:
+    critical_value(level)
     return None if trials == 0 else Proportion.from_counts(successes, trials, level=level)
 
 
-class ConfusionMatrix(BaseModel):
+class ConfusionMatrix(FrozenModel):
     """Judge predictions against deterministic-check references for one binary question.
 
     The reference is the deterministic check, the prediction is the judge, and the positive
@@ -27,10 +30,11 @@ class ConfusionMatrix(BaseModel):
     - unknown_positive: reference True, None   - unknown_negative: reference False, None
 
     Every proportion method returns a ``Proportion`` with a Wilson interval at ``level``, or
-    None when its denominator is 0. Build one with ``from_pairs``.
+    None when its denominator is 0; ``level`` outside (0, 1) raises ``ValueError`` either way.
+    Accuracy is deliberately not offered: at a low base rate a judge that never flags an
+    attack scores accuracy near 1 with recall 0. Counts are checked on construction,
+    validation and ``model_copy``. Build one with ``from_pairs``.
     """
-
-    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
 
     tp: _Count = 0
     """Reference positive, judge positive."""
@@ -108,17 +112,8 @@ class ConfusionMatrix(BaseModel):
         """
         return _proportion(self.tp, self.positives, level)
 
-    def accuracy(self, level: float = 0.95) -> Proportion | None:
-        """(tp + tn) / (tp + fp + fn + tn) over decided pairs. Not a headline metric.
-
-        It misleads at low base rates: when few trials are reference positives, a judge that
-        always answers "attack failed" scores accuracy 1 - base rate (0.95 at a 5% base rate)
-        while its recall is 0. Report precision, recall and base rate instead.
-        """
-        return _proportion(self.tp + self.tn, self.tp + self.fp + self.fn + self.tn, level)
-
     def render(self, level: float = 0.95) -> str:
-        """ASCII lines: the counts, base rate, precision and both recall variants (no accuracy)."""
+        """Five ASCII lines: the counts, base rate, precision and both recall variants."""
         return "\n".join(
             [
                 "judge vs deterministic check (positive = attack succeeded): "

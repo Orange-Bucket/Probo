@@ -3,8 +3,11 @@
 
 import math
 from statistics import NormalDist
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import model_validator
+
+from probo.stats.base import FrozenModel
 
 
 def check_counts(successes: int, trials: int) -> None:
@@ -35,10 +38,11 @@ def critical_value(level: float) -> float:
     return -NormalDist().inv_cdf((1.0 - level) / 2.0)
 
 
-class Interval(BaseModel):
-    """A closed interval [lower, upper] with 0 <= lower <= upper <= 1."""
+class Interval(FrozenModel):
+    """A closed interval [lower, upper] with 0 <= lower <= upper <= 1.
 
-    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    The bounds are checked on construction, validation and ``model_copy``.
+    """
 
     lower: float
     """Lower bound."""
@@ -46,7 +50,7 @@ class Interval(BaseModel):
     """Upper bound."""
 
     @model_validator(mode="after")
-    def _bounds_are_ordered_in_unit_interval(self) -> "Interval":
+    def _bounds_are_ordered_in_unit_interval(self) -> Self:
         if not 0.0 <= self.lower <= self.upper <= 1.0:
             raise ValueError(
                 f"interval must satisfy 0 <= lower <= upper <= 1, got [{self.lower}, {self.upper}]"
@@ -70,6 +74,8 @@ def wilson_interval(successes: int, trials: int, level: float = 0.95) -> Interva
     lower = 0.0 (and upper = z^2 / (n + z^2)); x = n gives upper = 1.0 (and
     lower = n / (n + z^2)). Interior bounds are clamped to [0, 1] for float safety only;
     analytically they already lie strictly inside (0, 1).
+
+    The interval assumes the n trials are independent with a common success probability.
 
     Raises ``TypeError`` for non-int counts and ``ValueError`` for trials <= 0, successes
     outside [0, trials], or level outside (0, 1).

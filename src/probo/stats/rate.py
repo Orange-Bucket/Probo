@@ -1,40 +1,69 @@
 # SPDX-License-Identifier: Apache-2.0
 """Proportions and labelled rates that always carry their trial count and Wilson interval."""
 
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_EVEN, Decimal, localcontext
 from enum import StrEnum
+from typing import Annotated, ClassVar, Self
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import Field, computed_field, model_validator
 
-from probo.stats.wilson import Interval, check_counts, wilson_interval
+from probo.stats.base import FrozenModel, require_close
+from probo.stats.wilson import Interval, check_counts, critical_value, wilson_interval
 
 
 class Estimand(StrEnum):
     """What an attack success rate estimates.
 
-    Let p be the probability that one delivered attempt produces the verified side effect.
-    The ``_K`` estimands are defined over groups of k attempts at the same task; their trials
-    are groups, not attempts. Probo computes only ``PER_ATTEMPT`` from trial outcomes; the
-    other two are labels for rates whose group counts were formed elsewhere.
+    s = #attack_succeeded, r = #attack_failed_target_resisted, N = all trials
+    (see ``probo.schema.Outcome``).
     """
 
     PER_ATTEMPT = "per_attempt"
-    """p, estimated as x / n over n delivered, graded attempts of which x succeeded."""
+    """P(one delivered, graded attempt produces the verified side effect); s / (s + r)."""
 
-    AT_LEAST_ONE_OF_K = "at_least_one_of_k"
-    """ASR@k: P(at least one of k attempts succeeds); equals 1 - (1 - p)^k only if i.i.d."""
-
-    ALL_OF_K = "all_of_k"
-    """ASR^k: P(all k attempts succeed); equals p^k only if the attempts are i.i.d."""
+    PER_TRIAL = "per_trial"
+    """P(one trial produces the verified side effect), excluded trials as failures; s / N."""
 
 
-def _format_level(level: float) -> str:
-    return f"{level * 100:g}%"
+def format_level(level: float) -> str:
+    """``level`` as the exact percentage of its shortest repr.
+
+    0.95 -> ``95%``, 0.995 -> ``99.5%``, 0.9999999 -> ``99.99999%``; never rounded.
+    """
+    percent = (Decimal(repr(level)) * 100).normalize()
+    return f"{percent:f}%"
 
 
-class _Binomial(BaseModel):
-    """Shared fields and checks of ``Proportion`` and ``Rate``."""
+def format_estimate_and_interval(estimate: float, lower: float, upper: float) -> str:
+    """``E [L, U]`` with L rounded down, U rounded up and E rounded to nearest, in decimals.
 
-    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    The same number of decimal places d is used for all three, starting at 3 and increased
+    until no value that is not exactly 0 prints as 0 and no value that is not exactly 1
+    prints as 1. Rounding acts on the exact binary value of each float, so the printed
+    interval always contains [lower, upper], and has non-zero width whenever lower < upper.
+    """
+    with localcontext() as context:
+        context.prec = 64
+        places = 3
+        while True:
+            step = Decimal(1).scaleb(-places)
+            texts = [
+                Decimal(estimate).quantize(step, rounding=ROUND_HALF_EVEN),
+                Decimal(lower).quantize(step, rounding=ROUND_FLOOR),
+                Decimal(upper).quantize(step, rounding=ROUND_CEILING),
+            ]
+            if all(
+                (text != 0 or value == 0) and (text != 1 or value == 1)
+                for value, text in zip((estimate, lower, upper), texts, strict=True)
+            ):
+                return f"{texts[0]} [{texts[1]}, {texts[2]}]"
+            places += 1
+
+
+class _Binomial(FrozenModel):
+    """Shared fields, derived values and checks of ``Proportion`` and ``Rate``."""
+
+    DERIVED: ClassVar[tuple[str, ...]] = ("estimate", "interval")
 
     successes: int
     """x, the number of trials counted as successes."""
@@ -42,56 +71,59 @@ class _Binomial(BaseModel):
     """n >= 1, the number of trials in the denominator."""
     level: float
     """Confidence level of ``interval``, in (0, 1)."""
-    estimate: float
-    """Point estimate x / n."""
-    interval: Interval
-    """``wilson_interval(successes, trials, level)``."""
 
     @model_validator(mode="after")
-    def _derived_fields_match_counts(self) -> "_Binomial":
+    def _counts_and_level_are_valid(self) -> Self:
         check_counts(self.successes, self.trials)
-        if self.estimate != self.successes / self.trials:
-            raise ValueError(
-                f"estimate {self.estimate} != successes / trials = {self.successes}/{self.trials}"
-            )
-        expected = wilson_interval(self.successes, self.trials, self.level)
-        if self.interval != expected:
-            raise ValueError(f"interval {self.interval} != Wilson interval {expected}")
+        critical_value(self.level)
         return self
 
+    @computed_field
+    @property
+    def estimate(self) -> float:
+        """Point estimate x / n, computed from the counts."""
+        return self.successes / self.trials
+
+    @computed_field
+    @property
+    def interval(self) -> Interval:
+        """``wilson_interval(successes, trials, level)``, computed from the stored fields."""
+        return wilson_interval(self.successes, self.trials, self.level)
+
+    def check_derived(self, name: str, value: object) -> None:
+        """Accept a supplied ``estimate`` or ``interval`` only within tolerance of the computed."""
+        if name == "estimate":
+            require_close(name, value, self.estimate)
+            return
+        supplied = Interval.model_validate(value)
+        require_close("interval.lower", supplied.lower, self.interval.lower)
+        require_close("interval.upper", supplied.upper, self.interval.upper)
+
     def _render(self, label: str | None) -> str:
+        interval = self.interval
         parts = [f"n={self.trials}"]
         if label is not None:
             parts.append(label)
-        parts.append(f"{_format_level(self.level)} Wilson")
-        return (
-            f"{self.estimate:.3f} [{self.interval.lower:.3f}, {self.interval.upper:.3f}]"
-            f" ({', '.join(parts)})"
-        )
+        parts.append(f"{format_level(self.level)} Wilson")
+        numbers = format_estimate_and_interval(self.estimate, interval.lower, interval.upper)
+        return f"{numbers} ({', '.join(parts)})"
 
 
 class Proportion(_Binomial):
     """A binomial proportion x / n with its two-sided Wilson interval at ``level``.
 
-    Construction checks that ``estimate == successes / trials`` and ``interval ==
-    wilson_interval(successes, trials, level)`` exactly, so a stored or deserialised
-    proportion cannot disagree with its counts. Build one with ``from_counts``.
+    Stores only ``successes``, ``trials`` and ``level``; ``estimate`` and ``interval`` are
+    computed from them and included in dumps. Loading accepts those derived keys only when
+    they agree with the recomputed values (see ``FrozenModel``).
     """
 
     @classmethod
     def from_counts(cls, successes: int, trials: int, *, level: float = 0.95) -> "Proportion":
         """Return x / n with its Wilson interval; raises for counts or level out of range."""
-        interval = wilson_interval(successes, trials, level)
-        return cls(
-            successes=successes,
-            trials=trials,
-            level=level,
-            estimate=successes / trials,
-            interval=interval,
-        )
+        return cls(successes=successes, trials=trials, level=level)
 
     def render(self) -> str:
-        """ASCII text such as ``0.800 [0.490, 0.943] (n=10, 95% Wilson)``."""
+        """ASCII text such as ``0.800 [0.490, 0.944] (n=10, 95% Wilson)``."""
         return self._render(None)
 
     def __str__(self) -> str:
@@ -101,57 +133,26 @@ class Proportion(_Binomial):
 class Rate(_Binomial):
     """An attack success rate: a binomial proportion labelled with what it estimates.
 
-    ``estimate = successes / trials`` and ``interval = wilson_interval(successes, trials,
-    level)``, both checked exactly on construction. For ``Estimand.PER_ATTEMPT`` the trials are
-    attempts and ``k`` must be None. For ``AT_LEAST_ONE_OF_K`` and ``ALL_OF_K`` the trials are
-    groups of ``k`` attempts (k >= 1), a success is a group meeting the estimand, and ``k`` is
-    required. Build one with ``from_counts``.
+    Stores ``successes``, ``trials``, ``level`` and ``estimand``; ``estimate = successes /
+    trials`` and ``interval = wilson_interval(successes, trials, level)`` are computed and
+    included in dumps. Loading accepts those derived keys only when they agree with the
+    recomputed values (see ``FrozenModel``).
     """
 
-    estimand: Estimand
-    """What the rate estimates."""
-    k: int | None = None
-    """Group size for the ``_K`` estimands; None for ``PER_ATTEMPT``."""
-
-    @model_validator(mode="after")
-    def _k_matches_estimand(self) -> "Rate":
-        if self.estimand is Estimand.PER_ATTEMPT:
-            if self.k is not None:
-                raise ValueError(f"k must be None for {self.estimand}, got {self.k}")
-        elif self.k is None or self.k < 1:
-            raise ValueError(f"{self.estimand} requires an int k >= 1, got {self.k}")
-        return self
+    estimand: Annotated[Estimand, Field(strict=False)]
+    """What the rate estimates. Its string value is accepted on input (it is a StrEnum)."""
 
     @classmethod
     def from_counts(
-        cls,
-        successes: int,
-        trials: int,
-        *,
-        estimand: Estimand,
-        k: int | None = None,
-        level: float = 0.95,
+        cls, successes: int, trials: int, *, estimand: Estimand, level: float = 0.95
     ) -> "Rate":
-        """Return the rate x / n labelled ``estimand``; raises for invalid counts, level or k."""
-        interval = wilson_interval(successes, trials, level)
-        return cls(
-            successes=successes,
-            trials=trials,
-            level=level,
-            estimate=successes / trials,
-            interval=interval,
-            estimand=estimand,
-            k=k,
-        )
+        """Return the rate x / n labelled ``estimand``; raises for invalid counts or level."""
+        return cls(successes=successes, trials=trials, level=level, estimand=estimand)
 
     @property
     def label(self) -> str:
-        """``per-attempt``, ``at-least-one-of-<k>`` or ``all-of-<k>``."""
-        if self.estimand is Estimand.PER_ATTEMPT:
-            return "per-attempt"
-        if self.estimand is Estimand.AT_LEAST_ONE_OF_K:
-            return f"at-least-one-of-{self.k}"
-        return f"all-of-{self.k}"
+        """``per-attempt`` or ``per-trial``."""
+        return self.estimand.value.replace("_", "-")
 
     def render(self) -> str:
         """ASCII text such as ``0.300 [0.145, 0.519] (n=20, per-attempt, 95% Wilson)``."""

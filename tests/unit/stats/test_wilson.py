@@ -12,9 +12,20 @@ from inspect_ai.scorer import Metric, MetricProtocol, SampleScore, Score, Value,
 from pydantic import ValidationError
 
 from probo.stats import Interval, wilson_interval
+from probo.stats.wilson import critical_value
 
 Z95 = NormalDist().inv_cdf(0.975)
-LEVELS = (0.5, 0.8, 0.9, 0.95, 0.99, 0.999)
+LEVELS = (0.1, 0.5, 0.8, 0.9, 0.95, 0.99, 0.999)
+
+# Two-sided standard normal critical values z = Phi^-1(1 - (1 - level) / 2), from published
+# tables to full double precision; independent of statistics.NormalDist.
+REFERENCE_Z = {
+    0.10: 0.12566134685507402,
+    0.50: 0.6744897501960817,
+    0.90: 1.6448536269514722,
+    0.95: 1.959963984540054,
+    0.99: 2.5758293035489004,
+}
 
 
 def inspect_bounds(successes: int, trials: int, level: float) -> tuple[float, float]:
@@ -31,6 +42,44 @@ def inspect_bounds(successes: int, trials: int, level: float) -> tuple[float, fl
     assert isinstance(lower, float)
     assert isinstance(upper, float)
     return lower, upper
+
+
+@pytest.mark.parametrize(("level", "z"), sorted(REFERENCE_Z.items()))
+def test_critical_value_matches_reference_quantiles(level: float, z: float) -> None:
+    """z for 10%, 50%, 90%, 95% and 99% matches hard-coded reference quantiles to 1e-12."""
+    assert critical_value(level) == pytest.approx(z, abs=1e-12)
+
+
+def test_critical_value_is_finite_within_one_ulp_of_one() -> None:
+    """level = nextafter(1, 0) gives a finite z (about 8.29), not an error.
+
+    The naive form inv_cdf(1 - (1 - level) / 2) raises here because the argument rounds to 1.
+    """
+    level = math.nextafter(1.0, 0.0)
+    z = critical_value(level)
+    assert 8.2 < z < 8.4
+    interval = wilson_interval(5, 10, level)
+    assert 0.0 < interval.lower < 0.5 < interval.upper < 1.0
+
+
+@pytest.mark.parametrize("level", [0.1, 0.5, 0.9, 0.99])
+def test_wilson_at_low_and_high_levels_with_reference_z(level: float) -> None:
+    """7/10 and 1/50 match the closed form evaluated with a hard-coded reference z."""
+    z = REFERENCE_Z[level]
+    for successes, trials in ((7, 10), (1, 50)):
+        z2 = z * z
+        center = (successes + z2 / 2) / (trials + z2)
+        half = z * math.sqrt(successes * (trials - successes) / trials + z2 / 4) / (trials + z2)
+        interval = wilson_interval(successes, trials, level)
+        assert interval.lower == pytest.approx(center - half, abs=1e-12)
+        assert interval.upper == pytest.approx(center + half, abs=1e-12)
+
+
+def test_seven_of_ten_at_fifty_percent() -> None:
+    """7/10 at 50%: hand-computed [0.595309, 0.787285] from z = 0.6744897501960817."""
+    interval = wilson_interval(7, 10, 0.5)
+    assert interval.lower == pytest.approx(0.595309, abs=5e-7)
+    assert interval.upper == pytest.approx(0.787285, abs=5e-7)
 
 
 def test_seven_of_ten_matches_published_reference() -> None:
@@ -64,7 +113,7 @@ def test_half_width_at_one_half(trials: int, half_width: float) -> None:
     assert (interval.lower + interval.upper) / 2 == pytest.approx(0.5, abs=1e-12)
 
 
-@pytest.mark.parametrize("level", [0.8, 0.95, 0.99])
+@pytest.mark.parametrize("level", [0.1, 0.5, 0.8, 0.95, 0.99])
 @pytest.mark.parametrize("trials", [1, 2, 3, 5, 10, 17, 50, 100])
 def test_agrees_with_inspect_ci_wilson(trials: int, level: float) -> None:
     """Every x in [0, n] agrees with Inspect's ci_wilson to 1e-12."""

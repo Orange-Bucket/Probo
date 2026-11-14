@@ -117,7 +117,6 @@ def test_zero_denominators_give_none() -> None:
     only_unknown_positives = ConfusionMatrix.from_pairs(pairs(unknown_positive=3))
     assert only_unknown_positives.recall() is None
     assert counts(only_unknown_positives.recall_unknown_as_miss()) == (0, 3)
-    assert only_unknown_positives.accuracy() is None
 
     empty = ConfusionMatrix.from_pairs([])
     assert empty.total == 0
@@ -132,11 +131,10 @@ def test_low_base_rate_gives_high_accuracy_with_zero_recall() -> None:
     This is why Probo reports precision, recall and base rate rather than accuracy.
     """
     matrix = ConfusionMatrix.from_pairs(pairs(fn=5, tn=95))
-    accuracy = matrix.accuracy()
+    accuracy = (matrix.tp + matrix.tn) / (matrix.tp + matrix.fp + matrix.fn + matrix.tn)
     recall = matrix.recall()
-    assert accuracy is not None
     assert recall is not None
-    assert accuracy.estimate == pytest.approx(0.95)
+    assert accuracy == pytest.approx(0.95)
     assert recall.estimate == 0.0
     assert recall.interval.lower == 0.0
     assert matrix.precision() is None
@@ -144,6 +142,7 @@ def test_low_base_rate_gives_high_accuracy_with_zero_recall() -> None:
     assert base_rate is not None
     assert base_rate.estimate == pytest.approx(0.05)
     assert "accuracy" not in matrix.render()
+    assert not hasattr(matrix, "accuracy")
 
 
 def test_render_lists_counts_base_rate_precision_and_both_recalls() -> None:
@@ -153,7 +152,7 @@ def test_render_lists_counts_base_rate_precision_and_both_recalls() -> None:
     header, base_rate, precision, recall, strict = text.splitlines()
     assert "pairs=104 tp=8 fp=2 fn=4 tn=86 unknown=4" in header
     assert base_rate.startswith("base rate: 0.144 ")
-    assert precision == "precision (unknown excluded): 0.800 [0.490, 0.943] (n=10, 95% Wilson)"
+    assert precision == "precision (unknown excluded): 0.800 [0.490, 0.944] (n=10, 95% Wilson)"
     assert recall.startswith("recall (unknown excluded): 0.667 ")
     assert strict.startswith("recall (unknown counted as miss): 0.533 ")
 
@@ -184,3 +183,32 @@ def test_matrix_is_frozen_and_round_trips() -> None:
     with pytest.raises(ValidationError):
         matrix.__setattr__("tp", 0)
     assert ConfusionMatrix.model_validate_json(matrix.model_dump_json()) == matrix
+
+
+@pytest.mark.parametrize("level", [0.0, 1.0, 5.0, float("nan")])
+def test_level_is_validated_even_when_denominator_is_zero(level: float) -> None:
+    """Every proportion method and render refuse a bad level, also when they would be None."""
+    empty = ConfusionMatrix.from_pairs([])
+    full = ConfusionMatrix.from_pairs(pairs(1, 1, 1, 1))
+    for matrix in (empty, full):
+        for method in (
+            matrix.precision,
+            matrix.recall,
+            matrix.recall_unknown_as_miss,
+            matrix.base_rate,
+            matrix.render,
+        ):
+            with pytest.raises(ValueError, match="level"):
+                method(level)
+
+
+def test_model_copy_revalidates() -> None:
+    """model_copy(update=...) cannot set a negative or non-int count, or an unknown field."""
+    matrix = ConfusionMatrix.from_pairs(pairs(1, 2, 3, 4))
+    with pytest.raises(ValidationError):
+        matrix.model_copy(update={"tp": -3})
+    with pytest.raises(ValidationError):
+        matrix.model_copy(update={"tp": True})
+    with pytest.raises(ValidationError):
+        matrix.model_copy(update={"accuracy": 0.9})
+    assert matrix.model_copy(update={"tp": 5}).tp == 5
