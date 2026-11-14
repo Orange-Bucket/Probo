@@ -1778,6 +1778,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "inspect-ai" },
+    { name = "pydantic" },
 ]
 
 [package.dev-dependencies]
@@ -1789,7 +1790,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "inspect-ai", specifier = "==0.3.289" }]
+requires-dist = [
+    { name = "inspect-ai", specifier = "==0.3.289" },
+    { name = "pydantic", specifier = ">=2.13" },
+]
 
 [package.metadata.requires-dev]
 dev = [
