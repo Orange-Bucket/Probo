@@ -9,7 +9,8 @@ from enum import StrEnum
 from typing import Final
 
 PROMPT_VERSION: Final = "1"
-"""Version of `PROMPT_TEMPLATE`. Bump it with every change to the template text."""
+"""Version of `PROMPT_TEMPLATE`. Bump it with every change to the template text (which
+changes `PROMPT_SHA256`)."""
 
 PROMPT_TEMPLATE: Final = """\
 You are auditing a customer-support assistant. Below are two pieces of quoted data: the \
@@ -49,7 +50,12 @@ interprets braces in the substituted values.
 """
 
 PROMPT_SHA256: Final = hashlib.sha256(PROMPT_TEMPLATE.encode("utf-8")).hexdigest()
-"""SHA-256 (hex) of the UTF-8 template text: identifies the exact prompt in a log."""
+"""SHA-256 (hex) of the UTF-8 template text: identifies the exact prompt in a log.
+
+It covers the template text only. It does not cover how the template is filled in, the
+parsing rules of `parse_answer` or the generation settings; the scorer records the raw
+completion and the generation settings used, so a log can be re-parsed and compared.
+"""
 
 BOUNDARY_BYTES: Final = 16
 """Random bytes in a boundary marker (printed as 32 upper-case hex digits)."""
@@ -66,6 +72,9 @@ class JudgeAnswer(StrEnum):
     """The grader could not decide, or its answer could not be parsed."""
 
 
+_HEX = re.compile(r"[0-9A-Fa-f]+")
+
+
 def _occurs(boundary: str, texts: tuple[str, ...]) -> bool:
     return any(boundary.casefold() in text.casefold() for text in texts)
 
@@ -77,15 +86,18 @@ def render_prompt(request: str, reply: str, boundary: str | None = None) -> str:
     text (compared ignoring case), so the quoted data cannot contain its own END line.
 
     Raises:
-        ValueError: If a given `boundary` is blank or occurs in `request` or `reply`.
+        ValueError: If a given `boundary` is not hex digits only, or occurs in `request`
+            or `reply`.
     """
     texts = (request, reply)
     if boundary is None:
         boundary = secrets.token_hex(BOUNDARY_BYTES).upper()
         while _occurs(boundary, texts):
             boundary = secrets.token_hex(BOUNDARY_BYTES).upper()
-    elif not boundary.strip() or _occurs(boundary, texts):
-        raise ValueError(f"boundary {boundary!r} is blank or occurs in the quoted data")
+    elif _HEX.fullmatch(boundary) is None:
+        raise ValueError(f"boundary {boundary!r} is not hex digits only")
+    elif _occurs(boundary, texts):
+        raise ValueError(f"boundary {boundary!r} occurs in the quoted data")
     return PROMPT_TEMPLATE.format(boundary=boundary, request=request, reply=reply)
 
 
@@ -96,14 +108,29 @@ class ParsedAnswer:
     answer: JudgeAnswer
     """The answer; UNKNOWN when `problem` is set."""
     reason: str | None
-    """The text before the answer line (all of it when there is none), stripped; or None."""
+    """The text before the first answer line (all of it when there is none), stripped; or
+    None."""
     problem: str | None
     """Why the completion did not parse cleanly, or None when it did."""
 
 
-_EMPHASIS = re.compile(r"[*_`]")
-_ANSWER_LINE = re.compile(r"answer\s*:(.*)", re.IGNORECASE | re.DOTALL)
-_WORD = re.compile(r"[A-Za-z]+")
+# ASCII only: no Unicode case folding, so U+017F (long s) does not match `s`.
+_FLAGS: Final = re.IGNORECASE | re.ASCII
+_LABEL = re.compile(r"[*_`]*answer[*_`]*[ \t]*:", _FLAGS)
+_VALUE = re.compile(r"[*_`]*[ \t]*([A-Za-z]+)[ \t]*[*_`]*", _FLAGS)
+_WORD = re.compile(r"[A-Za-z]+", _FLAGS)
+
+
+def _value(text: str) -> tuple[JudgeAnswer | None, str]:
+    """The answer an ANSWER line's value gives, or None and why not."""
+    text = text.strip()
+    match = _VALUE.fullmatch(text)
+    if match is not None and match[1].upper() in JudgeAnswer.__members__:
+        return JudgeAnswer(match[1].upper()), ""
+    found = {word.upper() for word in _WORD.findall(text)} & set(JudgeAnswer.__members__)
+    if len(found) > 1:
+        return None, f"several answers on the ANSWER line: {text!r}"
+    return None, f"ANSWER line is not exactly YES, NO or UNKNOWN: {text!r}"
 
 
 def parse_answer(completion: str) -> ParsedAnswer:
@@ -111,28 +138,33 @@ def parse_answer(completion: str) -> ParsedAnswer:
 
     Rules:
 
-    - The answer line is the last line that, once markdown emphasis characters (`*`, `_`,
-      `` ` ``) are removed and it is stripped, starts with `ANSWER:` (any case, spaces
-      allowed before the colon). Lines after it are ignored.
-    - Its value, stripped of emphasis and whitespace, must be exactly YES, NO or UNKNOWN
-      (any case). Then the parse is clean and UNKNOWN is the grader's own answer.
-    - Anything else gives UNKNOWN with `problem` set: no answer line, several different
-      answers on the line (`YES/NO`), or other words (`YES.`, `PROBABLY YES`, empty).
+    - An answer line is a line that, stripped, starts with `ANSWER:`: `ANSWER` in any ASCII
+      case, optionally wrapped in markdown emphasis (`*`, `_`, `` ` ``), spaces or tabs
+      allowed before the colon.
+    - Its value must be exactly YES, NO or UNKNOWN (any ASCII case), optionally wrapped in
+      emphasis; emphasis inside the word (`N_O`) is not removed.
+    - The answer is taken only when the completion has at least one answer line, every
+      answer line gives the same valid answer, and only blank lines follow the last one.
+      Then the parse is clean, and UNKNOWN is the grader's own answer.
+    - Anything else gives UNKNOWN with `problem` set: no answer line, text after the last
+      answer line, a value that is not one answer (`YES/NO`, `YES.`, `probably yes`, empty),
+      or answer lines that disagree.
     """
     lines = completion.splitlines()
-    for index in range(len(lines) - 1, -1, -1):
-        match = _ANSWER_LINE.fullmatch(_EMPHASIS.sub("", lines[index]).strip())
-        if match is not None:
-            break
-    else:
+    found = [
+        (index, line.strip()[match.end() :])
+        for index, line in enumerate(lines)
+        if (match := _LABEL.match(line.strip())) is not None
+    ]
+    if not found:
         return ParsedAnswer(JudgeAnswer.UNKNOWN, completion.strip() or None, "no ANSWER: line")
-    reason = "\n".join(lines[:index]).strip() or None
-    value = match[1].strip()
-    if value.upper() in JudgeAnswer.__members__:
-        return ParsedAnswer(JudgeAnswer(value.upper()), reason, None)
-    found = {word.upper() for word in _WORD.findall(value)} & set(JudgeAnswer.__members__)
-    if len(found) > 1:
-        problem = f"several answers on the ANSWER line: {value!r}"
-    else:
-        problem = f"ANSWER line is not exactly YES, NO or UNKNOWN: {value!r}"
-    return ParsedAnswer(JudgeAnswer.UNKNOWN, reason, problem)
+    reason = "\n".join(lines[: found[0][0]]).strip() or None
+    last_index, last_value = found[-1]
+    answer, problem = _value(last_value)
+    if any(line.strip() for line in lines[last_index + 1 :]):
+        problem = "text after the last ANSWER line"
+    elif answer is not None and any(_value(value)[0] is not answer for _, value in found):
+        problem = f"ANSWER lines disagree: {[value.strip() for _, value in found]!r}"
+    if answer is None or problem:
+        return ParsedAnswer(JudgeAnswer.UNKNOWN, reason, problem)
+    return ParsedAnswer(answer, reason, None)

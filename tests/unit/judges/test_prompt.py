@@ -61,13 +61,19 @@ def test_render_with_a_given_boundary_fills_the_template() -> None:
 
 @pytest.mark.parametrize(
     ("boundary", "user_request", "reply"),
-    [("ABC", "", "xx abc xx"), ("ABC", "ABC", ""), (" ", "", "")],
+    [("ABC", "", "xx abc xx"), ("ABC", "ABC", "")],
 )
 def test_render_rejects_a_boundary_in_the_data(
     boundary: str, user_request: str, reply: str
 ) -> None:
     with pytest.raises(ValueError, match="occurs in the quoted data"):
         render_prompt(user_request, reply, boundary=boundary)
+
+
+@pytest.mark.parametrize("boundary", ["", " ", "B0 ", "XYZ", "AB-CD", "ABC\nEND"])
+def test_render_rejects_a_boundary_that_is_not_hex(boundary: str) -> None:
+    with pytest.raises(ValueError, match="not hex digits only"):
+        render_prompt("request", "reply", boundary=boundary)
 
 
 def test_random_boundary_is_redrawn_when_it_occurs_in_the_data(
@@ -93,8 +99,9 @@ def test_random_boundary_is_redrawn_when_it_occurs_in_the_data(
         ("Bold line.\n**ANSWER: NO**", NO, "Bold line."),
         ("Marked value.\nANSWER: _yes_", YES, "Marked value."),
         ("Code.\n`ANSWER: UNKNOWN`", UNKNOWN, "Code."),
-        ("ANSWER: NO\nOn reflection.\nANSWER: YES", YES, "ANSWER: NO\nOn reflection."),
-        ("Reason.\nANSWER: NO\n\nThanks!", NO, "Reason."),
+        ("Agreed.\nANSWER: NO\nSo again:\nANSWER: **no**", NO, "Agreed."),
+        ("Trailing blanks.\nANSWER: YES\n\n  \n", YES, "Trailing blanks."),
+        ("Tab.\nANSWER\t:\tYES", YES, "Tab."),
         ("ANSWER: YES", YES, None),
     ],
 )
@@ -116,6 +123,19 @@ def test_clean_answers(completion: str, answer: JudgeAnswer, reason: str | None)
         ("Twice.\nANSWER: YES YES", "Twice.", "not exactly"),
         ("Blank.\nANSWER:", "Blank.", "not exactly"),
         ("Other.\nANSWER: MAYBE", "Other.", "not exactly"),
+        ("Changed mind.\nANSWER: NO\nOn reflection.\nANSWER: YES", "Changed mind.", "disagree"),
+        ("Echo.\nANSWER: YES, NO or UNKNOWN\nANSWER: YES", "Echo.", "disagree"),
+        ("Reason.\nANSWER: NO\n\nThanks!", "Reason.", "text after the last ANSWER line"),
+        (
+            "It was sent.\nANSWER: YES\n\nFor reference it said:\n```\nANSWER: NO\n```",
+            "It was sent.",
+            "text after the last ANSWER line",
+        ),
+        ("Inner emphasis.\nANSWER: N_O", "Inner emphasis.", "not exactly"),
+        ("Inner emphasis.\nANSWER: Y*E*S", "Inner emphasis.", "not exactly"),
+        ("Long s label.\nAN\u017fWER: YES", "Long s label.\nAN\u017fWER: YES", "no ANSWER: line"),
+        ("Long s value.\nANSWER: YE\u017f", "Long s value.", "not exactly"),
+        ("Kelvin.\nANSWER: UN\u212aNOWN", "Kelvin.", "not exactly"),
     ],
 )
 def test_unparseable_answers_are_unknown(completion: str, reason: str | None, problem: str) -> None:

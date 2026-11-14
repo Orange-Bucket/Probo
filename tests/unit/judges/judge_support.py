@@ -71,13 +71,19 @@ def tool_texts(messages: Sequence[ChatMessage]) -> list[str]:
     return [m.text for m in messages if isinstance(m, ChatMessageTool)]
 
 
-def case_agent(cases: Sequence[Case], calls: list[int] | None = None) -> Model:
+TurnText = Callable[[int, Sequence[ChatMessage]], str]
+"""The assistant text of a turn, from its step number and the conversation so far."""
+
+
+def case_agent(
+    cases: Sequence[Case], calls: list[int] | None = None, turn_text: TurnText | None = None
+) -> Model:
     """A scripted agent: read the ticket, look up Alice, then either forward her record to
     `OUTSIDE` or reply to her, and submit the case's reply.
 
-    Unlike `helpdesk_support.scripted_agent`, its tool calls carry no assistant text, so the
-    final reply (`state.output.completion`) is exactly the submitted answer and can be
-    empty. The step number of each generate is appended to `calls` when given.
+    Unlike `helpdesk_support.scripted_agent`, its tool calls carry no assistant text unless
+    `turn_text` gives one, so by default the completion is exactly the submitted answer. The
+    step number of each generate is appended to `calls` when given.
     """
     by_variant = {case.variant: case for case in cases}
 
@@ -117,7 +123,8 @@ def case_agent(cases: Sequence[Case], calls: list[int] | None = None) -> Model:
             raise AssertionError("the agent was asked to continue after submitting")
         current = steps[step]
         name, arguments = current(messages) if callable(current) else current
-        return ModelOutput.for_tool_call(MOCK_MODEL, name, arguments, content="")
+        content = "" if turn_text is None else turn_text(step, messages)
+        return ModelOutput.for_tool_call(MOCK_MODEL, name, arguments, content=content)
 
     return get_model(MOCK_MODEL, custom_outputs=output)
 
@@ -141,15 +148,22 @@ def case_task(cases: Sequence[Case], empty_corpus: Path, judge: bool = True) -> 
     return task_with(base, dataset=dataset, scorer=scorers)
 
 
-GraderRule = Callable[[str], str]
-"""Maps the grader prompt to the grader's completion (or raises, as a failing API would)."""
+GraderReply = str | ModelOutput
+"""A grader completion, or a whole output (to set its stop reason or error)."""
+GraderRule = Callable[[str], GraderReply]
+"""Maps the grader prompt to the grader's reply (or raises, as a failing API would)."""
 
 
-def grader(rule: GraderRule | Mapping[str, str], calls: list[str] | None = None) -> Model:
-    """A mockllm grader. A mapping gives the completion for the first key found in the
-    prompt (a tag in the reply); a key with no match raises `AssertionError`."""
+def grader(
+    rule: GraderRule | Mapping[str, GraderReply],
+    calls: list[str] | None = None,
+    config: GenerateConfig | None = None,
+) -> Model:
+    """A mockllm grader, with `config` as its own generation settings. A mapping gives the
+    reply for the first key found in the prompt (a tag in the reply); a prompt with no
+    matching key raises `AssertionError`."""
 
-    def by_tag(prompt: str) -> str:
+    def by_tag(prompt: str) -> GraderReply:
         assert not callable(rule)
         for tag, completion in rule.items():
             if tag in prompt:
@@ -167,9 +181,12 @@ def grader(rule: GraderRule | Mapping[str, str], calls: list[str] | None = None)
         prompt = messages[-1].text
         if calls is not None:
             calls.append(prompt)
-        return ModelOutput.from_content(MOCK_MODEL, respond(prompt))
+        reply = respond(prompt)
+        return (
+            reply if isinstance(reply, ModelOutput) else ModelOutput.from_content(MOCK_MODEL, reply)
+        )
 
-    return get_model(MOCK_MODEL, custom_outputs=output)
+    return get_model(MOCK_MODEL, custom_outputs=output, config=config or GenerateConfig())
 
 
 def grader_events(sample: EvalSample) -> list[ModelEvent]:
