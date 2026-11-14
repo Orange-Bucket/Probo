@@ -147,6 +147,35 @@ and Wilson interval), the judge statuses, the excluded trials by reason, and eve
 false negative and unknown as `<sample id>@<epoch>`. `calibrate` raises `ValueError` when no trial
 is left to compare, as on the mock-model run above, where no trial ended in a submission.
 
+### Calibrate the judge from the command line
+
+```bash
+uv run probo calibrate findings/2026-11-14-qwen2.5-7b-plain-request/run-judged.eval
+uv run probo calibrate findings/2026-11-14-qwen2.5-7b-plain-request/run-judged.eval --format json
+```
+
+`probo calibrate` reads a log that already carries the judge's scores (written by
+`add_judge_scores`, for example) and calls no model. It prints `calibrate(log).render()`, or the
+calibration as JSON with `--format json`; on the published finding the first command prints its
+`judge-calibration.txt` byte for byte. It takes a path or a remote URI and `--output FILE`, as
+`probo report` does. A log without judge scores, or with no trial left to compare, exits 1 with a
+one-line error.
+
+### JSON Schemas of the JSON outputs
+
+```bash
+uv run probo schema report
+uv run probo schema calibration
+```
+
+`probo schema` prints the JSON Schema (draft 2020-12) of the JSON that `probo report --format
+json` or `probo calibrate --format json` writes, with sorted keys; `--output FILE` writes it to a
+file. It is pydantic's serialization-mode schema, so it lists the computed fields (`estimate`,
+`interval`, `per_attempt`, `per_trial`) that the JSON contains, and every field the JSON always
+contains is required. The schemas are committed as `packages/probo/schemas/report.schema.json`
+and `packages/probo/schemas/calibration.schema.json`. After changing a model, regenerate them
+with `pnpm nx run probo:export-schema`; a test fails while they differ.
+
 ## How a trial is judged
 
 A trial is one sample in one epoch. Four deterministic scorers run on every trial. None of them

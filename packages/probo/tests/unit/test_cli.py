@@ -1,12 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-"""`probo report`: both formats, stdout and `--output`, and one-line errors."""
+"""`probo report` and `probo schema`: formats, stdout and `--output`, and one-line errors.
 
+The log checks are shared with `probo calibrate`, whose other tests are in
+`judges/test_calibrate_command.py`.
+"""
+
+import json
 from pathlib import Path
 
 import pytest
 from inspect_ai.log import EvalLog
+from jsonschema import Draft202012Validator, validate
 
-from probo.cli import main
+from probo.cli import SCHEMAS, json_schema, main
 from probo.report import EVIDENCE_SENTENCE, RunSummary, render_markdown, summarise
 
 from .outcomes.outcome_support import corpus_args, leak, other_task, run_plan
@@ -58,38 +64,70 @@ def one_line_error(capsys: pytest.CaptureFixture[str]) -> str:
     return lines[0]
 
 
-def test_missing_log(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+COMMANDS = pytest.mark.parametrize("command", ["report", "calibrate"])
+"""The commands that read a log."""
+
+
+def test_json_matches_its_schema(log: EvalLog, capsys: pytest.CaptureFixture[str]) -> None:
+    """The report JSON validates against the schema `probo schema report` prints."""
+    assert main(["report", log.location, "--format", "json"]) == 0
+    schema = json.loads(json_schema("report"))
+    validate(json.loads(capsys.readouterr().out), schema, cls=Draft202012Validator)
+
+
+@COMMANDS
+def test_missing_log(command: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """A missing log exits 1 with one line on stderr."""
-    assert main(["report", str(tmp_path / "nope.eval")]) == 1
+    assert main([command, str(tmp_path / "nope.eval")]) == 1
     assert "log not found" in one_line_error(capsys)
 
 
-def test_unreadable_log(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@COMMANDS
+def test_unreadable_log(command: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """A file that is not a log exits 1 with one line on stderr."""
     bad = tmp_path / "bad.eval"
     bad.write_text("not a log\nsecond line\n", encoding="utf-8")
-    assert main(["report", str(bad)]) == 1
+    assert main([command, str(bad)]) == 1
     assert "cannot read log" in one_line_error(capsys)
 
 
-def test_bad_arguments_exit_2(log: EvalLog) -> None:
-    """argparse rejects an unknown format."""
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["report", "run.eval", "--format", "html"],
+        ["report", "run.eval", "--format", "text"],
+        ["calibrate", "run.eval", "--format", "markdown"],
+        ["schema", "summary"],
+        ["schema"],
+    ],
+)
+def test_bad_arguments_exit_2(argv: list[str]) -> None:
+    """argparse rejects an unknown format or schema name, and a missing one."""
     with pytest.raises(SystemExit) as exit_info:
-        main(["report", log.location, "--format", "html"])
+        main(argv)
     assert exit_info.value.code == 2
 
 
-def test_directory_is_not_a_log(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@COMMANDS
+def test_directory_is_not_a_log(
+    command: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """A directory exits 1 saying so."""
-    assert main(["report", str(tmp_path)]) == 1
+    assert main([command, str(tmp_path)]) == 1
     assert "is a directory" in one_line_error(capsys)
 
 
-def test_output_over_the_log_is_refused(log: EvalLog, capsys: pytest.CaptureFixture[str]) -> None:
-    """Writing the report over the log itself is refused and the log is kept."""
+@pytest.mark.parametrize(
+    ("command", "writing"), [("report", "report"), ("calibrate", "calibration")]
+)
+def test_output_over_the_log_is_refused(
+    log: EvalLog, command: str, writing: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Writing the output over the log itself is refused, before the log is read, and the
+    log is kept."""
     before = Path(log.location).read_bytes()
-    assert main(["report", log.location, "--output", log.location]) == 1
-    assert "refusing to write the report over the log" in one_line_error(capsys)
+    assert main([command, log.location, "--output", log.location]) == 1
+    assert f"refusing to write the {writing} over the log" in one_line_error(capsys)
     assert Path(log.location).read_bytes() == before
 
 
@@ -112,3 +150,52 @@ def test_log_of_another_task(tmp_path: Path, capsys: pytest.CaptureFixture[str])
     other = run(tmp_path / "logs", task=other_task())
     assert main(["report", other.location]) == 1
     assert "'other_task', not helpdesk_exfil" in one_line_error(capsys)
+
+
+def test_calibrate_log_without_judge_scores(
+    log: EvalLog, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A log the grader never scored exits 1 with one line naming the missing scores."""
+    assert main(["calibrate", log.location]) == 1
+    line = one_line_error(capsys)
+    assert "cannot calibrate the grader on log" in line
+    assert "has no 'reply_only_judge' scores" in line
+
+
+@pytest.mark.parametrize("name", sorted(SCHEMAS))
+def test_schema_to_stdout(name: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """The schema is pydantic's serialization schema as sorted, indented ASCII JSON."""
+    assert main(["schema", name]) == 0
+    out = capsys.readouterr().out
+    assert out == json_schema(name)
+    assert out.isascii() and out.endswith("}\n")
+    schema = json.loads(out)
+    assert out == json.dumps(schema, indent=2, sort_keys=True) + "\n"
+    assert schema["title"] == SCHEMAS[name].__name__
+    Draft202012Validator.check_schema(schema)
+
+
+@pytest.mark.parametrize("name", sorted(SCHEMAS))
+def test_schema_output_file(name: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`--output` writes the same text, trailing newline included, and nothing to stdout."""
+    target = tmp_path / f"{name}.schema.json"
+    assert main(["schema", name, "--output", str(target)]) == 0
+    assert capsys.readouterr().out == ""
+    assert target.read_bytes().decode("utf-8") == json_schema(name)
+
+
+def test_schema_lists_derived_and_defaulted_fields_as_required() -> None:
+    """Computed fields are in the schema (read-only) and every field the dump writes,
+    defaulted ones included, is required."""
+    report = json.loads(json_schema("report"))["$defs"]
+    assert {"per_attempt", "per_trial"} <= set(report["AttackSuccess"]["required"])
+    assert report["Proportion"]["properties"]["estimate"]["readOnly"] is True
+    calibration = json.loads(json_schema("calibration"))
+    assert "level" in calibration["required"]
+    assert "sample_error" in calibration["$defs"]["Exclusions"]["required"]
+
+
+def test_schema_unwritable_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """An output path that cannot be written exits 1 with one line on stderr."""
+    assert main(["schema", "report", "--output", str(tmp_path)]) == 1
+    assert "cannot write" in one_line_error(capsys)

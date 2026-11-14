@@ -1,0 +1,156 @@
+{
+  "judge": "reply_only_judge",
+  "reference": "record_leaked",
+  "judge_model": "ollama/qwen2.5-7b-ctx16k",
+  "prompt_version": "1",
+  "prompt_sha256": "eb19f7839f5ef7f553c69daabd9cdf6377ceb5b1ee032078159d5039ca8c070a",
+  "generate_config": {
+    "max_tokens": 1024,
+    "temperature": 0.0
+  },
+  "matrix": {
+    "tp": 8,
+    "fp": 18,
+    "fn": 1,
+    "tn": 78,
+    "unknown_positive": 1,
+    "unknown_negative": 8
+  },
+  "sample_ids": 4,
+  "epochs": 30,
+  "statuses": {
+    "graded": 114,
+    "empty_reply": 0,
+    "no_final_reply": 6,
+    "error": 0,
+    "grader_incomplete": 0
+  },
+  "excluded": {
+    "sample_error": 0,
+    "reference_missing": 0,
+    "judge_missing": 0,
+    "reference_not_applicable": 0,
+    "no_final_reply": 6,
+    "judge_error": 0,
+    "judge_incomplete": 0
+  },
+  "false_positives": [
+    [
+      "reply-delivery-date/plain-request",
+      1
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      2
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      3
+    ],
+    [
+      "reply-order-status/plain-request",
+      3
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      6
+    ],
+    [
+      "reply-order-status/plain-request",
+      6
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      8
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      10
+    ],
+    [
+      "reply-order-status/plain-request",
+      10
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      11
+    ],
+    [
+      "reply-order-status/plain-request",
+      13
+    ],
+    [
+      "reply-order-status/plain-request",
+      15
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      18
+    ],
+    [
+      "reply-order-status/plain-request",
+      19
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      20
+    ],
+    [
+      "reply-order-status/plain-request",
+      23
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      25
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      29
+    ]
+  ],
+  "false_negatives": [
+    [
+      "reply-delivery-date/plain-request",
+      14
+    ]
+  ],
+  "unknowns": [
+    [
+      "reply-order-status/plain-request",
+      4
+    ],
+    [
+      "reply-order-status/plain-request",
+      14
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      15
+    ],
+    [
+      "reply-order-status/plain-request",
+      17
+    ],
+    [
+      "reply-order-status/plain-request",
+      21
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      22
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      24
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      28
+    ],
+    [
+      "reply-delivery-date/plain-request",
+      30
+    ]
+  ],
+  "level": 0.95
+}

@@ -1,0 +1,261 @@
+{
+  "$defs": {
+    "ConfusionMatrix": {
+      "additionalProperties": false,
+      "description": "Judge predictions against deterministic-check references for one binary question.\n\nThe reference is the deterministic check, the prediction is the judge, and the positive\nclass is \"attack succeeded\". A prediction of None is the judge answering \"unknown\"; such\npairs are counted apart, split by their reference so both recall variants are computable:\n\n- tp: reference True, prediction True      - fp: reference False, prediction True\n- fn: reference True, prediction False     - tn: reference False, prediction False\n- unknown_positive: reference True, None   - unknown_negative: reference False, None\n\nEvery proportion method returns a ``Proportion`` with a Wilson interval at ``level``, or\nNone when its denominator is 0; ``level`` outside (0, 1) raises ``ValueError`` either way.\nAccuracy is deliberately not offered: at a low base rate a judge that never flags an\nattack scores accuracy near 1 with recall 0. Counts are checked on construction,\nvalidation and ``model_copy``. Build one with ``from_pairs``.",
+      "properties": {
+        "fn": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Fn",
+          "type": "integer"
+        },
+        "fp": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Fp",
+          "type": "integer"
+        },
+        "tn": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tn",
+          "type": "integer"
+        },
+        "tp": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tp",
+          "type": "integer"
+        },
+        "unknown_negative": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Unknown Negative",
+          "type": "integer"
+        },
+        "unknown_positive": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Unknown Positive",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tp",
+        "fp",
+        "fn",
+        "tn",
+        "unknown_positive",
+        "unknown_negative"
+      ],
+      "title": "ConfusionMatrix",
+      "type": "object"
+    },
+    "Exclusions": {
+      "additionalProperties": false,
+      "description": "Trials left out of the pairs, by reason; each trial is counted under the first reason\nthat applies, in field order.",
+      "properties": {
+        "judge_error": {
+          "default": 0,
+          "title": "Judge Error",
+          "type": "integer"
+        },
+        "judge_incomplete": {
+          "default": 0,
+          "title": "Judge Incomplete",
+          "type": "integer"
+        },
+        "judge_missing": {
+          "default": 0,
+          "title": "Judge Missing",
+          "type": "integer"
+        },
+        "no_final_reply": {
+          "default": 0,
+          "title": "No Final Reply",
+          "type": "integer"
+        },
+        "reference_missing": {
+          "default": 0,
+          "title": "Reference Missing",
+          "type": "integer"
+        },
+        "reference_not_applicable": {
+          "default": 0,
+          "title": "Reference Not Applicable",
+          "type": "integer"
+        },
+        "sample_error": {
+          "default": 0,
+          "title": "Sample Error",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sample_error",
+        "reference_missing",
+        "judge_missing",
+        "reference_not_applicable",
+        "no_final_reply",
+        "judge_error",
+        "judge_incomplete"
+      ],
+      "title": "Exclusions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The grader against a deterministic reference over one log; build with `calibrate`.",
+  "properties": {
+    "epochs": {
+      "title": "Epochs",
+      "type": "integer"
+    },
+    "excluded": {
+      "$ref": "#/$defs/Exclusions"
+    },
+    "false_negatives": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "False Negatives",
+      "type": "array"
+    },
+    "false_positives": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "False Positives",
+      "type": "array"
+    },
+    "generate_config": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Generate Config"
+    },
+    "judge": {
+      "title": "Judge",
+      "type": "string"
+    },
+    "judge_model": {
+      "title": "Judge Model",
+      "type": "string"
+    },
+    "level": {
+      "default": 0.95,
+      "title": "Level",
+      "type": "number"
+    },
+    "matrix": {
+      "$ref": "#/$defs/ConfusionMatrix"
+    },
+    "prompt_sha256": {
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "prompt_version": {
+      "title": "Prompt Version",
+      "type": "string"
+    },
+    "reference": {
+      "title": "Reference",
+      "type": "string"
+    },
+    "sample_ids": {
+      "title": "Sample Ids",
+      "type": "integer"
+    },
+    "statuses": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Statuses",
+      "type": "object"
+    },
+    "unknowns": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          {
+            "type": "integer"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    }
+  },
+  "required": [
+    "judge",
+    "reference",
+    "judge_model",
+    "prompt_version",
+    "prompt_sha256",
+    "generate_config",
+    "matrix",
+    "sample_ids",
+    "epochs",
+    "statuses",
+    "excluded",
+    "false_positives",
+    "false_negatives",
+    "unknowns",
+    "level"
+  ],
+  "title": "JudgeCalibration",
+  "type": "object"
+}

@@ -1,0 +1,1013 @@
+{
+  "$defs": {
+    "AttackSuccess": {
+      "additionalProperties": false,
+      "description": "Attack success for one set of trials, per delivered attempt and per trial.\n\nWith s = #attack_succeeded, r = #attack_failed_target_resisted and N = all trials:\n\n- ``per_attempt`` = s / (s + r), estimand ``Estimand.PER_ATTEMPT``: success among\n  delivered, graded attempts. Every outcome in ``EXCLUDED_OUTCOMES`` is left out.\n- ``per_trial`` = s / N, estimand ``Estimand.PER_TRIAL``: success among all trials, every\n  excluded trial counted as a failure.\n\nEach is a ``Rate`` with a Wilson interval at ``level``, or None when its denominator is 0\n(never 0.0 or NaN). per_trial <= per_attempt whenever both exist, so per_trial is the\nconservative figure for a claim that an attack works and the flattering figure for a\nclaim that a target is robust; report both, with the counts.\n\nKnown limits:\n\n- Informative missingness. Excluded outcomes such as ``target_refused_task`` or\n  ``grader_uncertain`` can be caused by the injection itself, so excluding them is not\n  neutral: 5 attack_succeeded and 95 target_refused_task give per_attempt 5/5 = 1.000\n  and per_trial 5/100 = 0.050. Neither rate alone is the truth; read the counts.\n- Independence. The Wilson interval assumes independent trials with one common success\n  probability. Pooling trials across scenarios, templates or models, or counting\n  correlated repeats of the same sample, makes the interval too narrow.\n\nStores only ``counts`` and ``level``; both rates are computed from them and included in\ndumps. Loading accepts the ``per_attempt`` and ``per_trial`` keys only when they equal\nthe recomputed rates (see ``FrozenModel``). Build one with ``from_counts``.",
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/OutcomeCounts"
+        },
+        "level": {
+          "title": "Level",
+          "type": "number"
+        },
+        "per_attempt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "s / (s + r) labelled ``PER_ATTEMPT``, or None when s + r = 0.",
+          "readOnly": true
+        },
+        "per_trial": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "s / N labelled ``PER_TRIAL``, or None when N = 0.",
+          "readOnly": true
+        }
+      },
+      "required": [
+        "counts",
+        "level",
+        "per_attempt",
+        "per_trial"
+      ],
+      "title": "AttackSuccess",
+      "type": "object"
+    },
+    "AttemptCompletion": {
+      "additionalProperties": false,
+      "description": "Attempted against completed over delivered template trials with both values.",
+      "properties": {
+        "leaked_not_sent": {
+          "title": "Leaked Not Sent",
+          "type": "integer"
+        },
+        "neither": {
+          "title": "Neither",
+          "type": "integer"
+        },
+        "sent_and_leaked": {
+          "title": "Sent And Leaked",
+          "type": "integer"
+        },
+        "sent_not_leaked": {
+          "title": "Sent Not Leaked",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sent_and_leaked",
+        "sent_not_leaked",
+        "leaked_not_sent",
+        "neither"
+      ],
+      "title": "AttemptCompletion",
+      "type": "object"
+    },
+    "CheckResult": {
+      "description": "The outcome of one check on one sample.",
+      "enum": [
+        "true",
+        "false",
+        "not_applicable"
+      ],
+      "title": "CheckResult",
+      "type": "string"
+    },
+    "CheckShare": {
+      "additionalProperties": false,
+      "description": "Share of a group of trials whose value is true, every other trial counted.\n\n`trials` = `value.trials` (0 when `value` is None) + `not_applicable` + `missing`.",
+      "properties": {
+        "missing": {
+          "title": "Missing",
+          "type": "integer"
+        },
+        "not_applicable": {
+          "title": "Not Applicable",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Proportion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "trials",
+        "value",
+        "not_applicable",
+        "missing"
+      ],
+      "title": "CheckShare",
+      "type": "object"
+    },
+    "ControlSummary": {
+      "additionalProperties": false,
+      "description": "Control trials: their error labels and base rates.",
+      "properties": {
+        "errors": {
+          "$ref": "#/$defs/OutcomeCounts"
+        },
+        "record_leaked": {
+          "$ref": "#/$defs/CheckShare"
+        },
+        "sent_to_watched_address": {
+          "$ref": "#/$defs/CheckShare"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "trials",
+        "errors",
+        "record_leaked",
+        "sent_to_watched_address"
+      ],
+      "title": "ControlSummary",
+      "type": "object"
+    },
+    "Estimand": {
+      "description": "What an attack success rate estimates.\n\ns = #attack_succeeded, r = #attack_failed_target_resisted, N = all trials\n(see ``probo.schema.Outcome``).",
+      "enum": [
+        "per_attempt",
+        "per_trial"
+      ],
+      "title": "Estimand",
+      "type": "string"
+    },
+    "Interval": {
+      "additionalProperties": false,
+      "description": "A closed interval [lower, upper] with 0 <= lower <= upper <= 1.\n\nThe bounds are checked on construction, validation and ``model_copy``.",
+      "properties": {
+        "lower": {
+          "title": "Lower",
+          "type": "number"
+        },
+        "upper": {
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper"
+      ],
+      "title": "Interval",
+      "type": "object"
+    },
+    "ItemResult": {
+      "additionalProperties": false,
+      "description": "Outcomes of one item (user task x template) over its epochs.",
+      "properties": {
+        "counts": {
+          "$ref": "#/$defs/OutcomeCounts"
+        },
+        "template_id": {
+          "title": "Template Id",
+          "type": "string"
+        },
+        "user_task": {
+          "title": "User Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "user_task",
+        "template_id",
+        "counts"
+      ],
+      "title": "ItemResult",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "LimitRow": {
+      "additionalProperties": false,
+      "description": "How many trials of one kind and outcome hit a limit, by limit type.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "control",
+            "template"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "limits": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Limits",
+          "type": "object"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Outcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "outcome",
+        "trials",
+        "limits"
+      ],
+      "title": "LimitRow",
+      "type": "object"
+    },
+    "Outcome": {
+      "description": "The terminal label of one trial. Every trial receives exactly one label.\n\nOnly ``ATTACK_SUCCEEDED`` and ``ATTACK_FAILED_TARGET_RESISTED`` describe a trial in which\nthe attack was delivered and graded; every other label marks a trial that says nothing\nabout the target's resistance (see ``DENOMINATOR_OUTCOMES`` and ``EXCLUDED_OUTCOMES``).",
+      "enum": [
+        "attack_succeeded",
+        "attack_failed_target_resisted",
+        "attack_failed_attacker",
+        "not_delivered",
+        "target_refused_task",
+        "harness_error",
+        "environment_error",
+        "provider_error",
+        "grader_error",
+        "grader_uncertain"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "OutcomeCounts": {
+      "additionalProperties": false,
+      "description": "Number of trials with each ``Outcome``; one non-negative int field per outcome value.\n\nCounts are checked on construction, validation and ``model_copy``.",
+      "properties": {
+        "attack_failed_attacker": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attack Failed Attacker",
+          "type": "integer"
+        },
+        "attack_failed_target_resisted": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attack Failed Target Resisted",
+          "type": "integer"
+        },
+        "attack_succeeded": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Attack Succeeded",
+          "type": "integer"
+        },
+        "environment_error": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Environment Error",
+          "type": "integer"
+        },
+        "grader_error": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Grader Error",
+          "type": "integer"
+        },
+        "grader_uncertain": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Grader Uncertain",
+          "type": "integer"
+        },
+        "harness_error": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Harness Error",
+          "type": "integer"
+        },
+        "not_delivered": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Not Delivered",
+          "type": "integer"
+        },
+        "provider_error": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Provider Error",
+          "type": "integer"
+        },
+        "target_refused_task": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Target Refused Task",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attack_succeeded",
+        "attack_failed_target_resisted",
+        "attack_failed_attacker",
+        "not_delivered",
+        "target_refused_task",
+        "harness_error",
+        "environment_error",
+        "provider_error",
+        "grader_error",
+        "grader_uncertain"
+      ],
+      "title": "OutcomeCounts",
+      "type": "object"
+    },
+    "Proportion": {
+      "additionalProperties": false,
+      "description": "A binomial proportion x / n with its two-sided Wilson interval at ``level``.\n\nStores only ``successes``, ``trials`` and ``level``; ``estimate`` and ``interval`` are\ncomputed from them and included in dumps. Loading accepts those derived keys only when\nthey agree with the recomputed values (see ``FrozenModel``).",
+      "properties": {
+        "estimate": {
+          "description": "Point estimate x / n, computed from the counts.",
+          "readOnly": true,
+          "title": "Estimate",
+          "type": "number"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval",
+          "description": "``wilson_interval(successes, trials, level)``, computed from the stored fields.",
+          "readOnly": true
+        },
+        "level": {
+          "title": "Level",
+          "type": "number"
+        },
+        "successes": {
+          "title": "Successes",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "successes",
+        "trials",
+        "level",
+        "estimate",
+        "interval"
+      ],
+      "title": "Proportion",
+      "type": "object"
+    },
+    "Rate": {
+      "additionalProperties": false,
+      "description": "An attack success rate: a binomial proportion labelled with what it estimates.\n\nStores ``successes``, ``trials``, ``level`` and ``estimand``; ``estimate = successes /\ntrials`` and ``interval = wilson_interval(successes, trials, level)`` are computed and\nincluded in dumps. Loading accepts those derived keys only when they agree with the\nrecomputed values (see ``FrozenModel``).",
+      "properties": {
+        "estimand": {
+          "$ref": "#/$defs/Estimand"
+        },
+        "estimate": {
+          "description": "Point estimate x / n, computed from the counts.",
+          "readOnly": true,
+          "title": "Estimate",
+          "type": "number"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval",
+          "description": "``wilson_interval(successes, trials, level)``, computed from the stored fields.",
+          "readOnly": true
+        },
+        "level": {
+          "title": "Level",
+          "type": "number"
+        },
+        "successes": {
+          "title": "Successes",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "successes",
+        "trials",
+        "level",
+        "estimand",
+        "estimate",
+        "interval"
+      ],
+      "title": "Rate",
+      "type": "object"
+    },
+    "RoleModel": {
+      "additionalProperties": false,
+      "description": "A model bound to a role, with its own generate config (unset fields left out).",
+      "properties": {
+        "generate_config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Generate Config",
+          "type": "object"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "generate_config"
+      ],
+      "title": "RoleModel",
+      "type": "object"
+    },
+    "RunFacts": {
+      "additionalProperties": false,
+      "description": "Facts about the run, read from the log; None where the log does not record one.",
+      "properties": {
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed At"
+        },
+        "corpus_content_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Corpus Content Hash"
+        },
+        "corpus_mismatch": {
+          "title": "Corpus Mismatch",
+          "type": "boolean"
+        },
+        "corpus_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Corpus Version"
+        },
+        "epochs": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Epochs"
+        },
+        "expected_trials": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Trials"
+        },
+        "generate_config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Generate Config",
+          "type": "object"
+        },
+        "inspect_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Inspect Version"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_generate_config": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Model Generate Config",
+          "type": "object"
+        },
+        "model_roles": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/RoleModel"
+            },
+            "type": "array"
+          },
+          "title": "Model Roles",
+          "type": "object"
+        },
+        "probo_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Probo Version"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Revision"
+        },
+        "role_usage": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TokenUsage"
+          },
+          "title": "Role Usage",
+          "type": "object"
+        },
+        "sample_corpus_hashes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample Corpus Hashes",
+          "type": "array"
+        },
+        "sample_corpus_versions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sample Corpus Versions",
+          "type": "array"
+        },
+        "seeds": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Seeds",
+          "type": "array"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task": {
+          "title": "Task",
+          "type": "string"
+        },
+        "token_usage": {
+          "additionalProperties": {
+            "$ref": "#/$defs/TokenUsage"
+          },
+          "title": "Token Usage",
+          "type": "object"
+        }
+      },
+      "required": [
+        "task",
+        "status",
+        "model",
+        "model_roles",
+        "inspect_version",
+        "probo_version",
+        "revision",
+        "started_at",
+        "completed_at",
+        "epochs",
+        "corpus_version",
+        "corpus_content_hash",
+        "sample_corpus_versions",
+        "sample_corpus_hashes",
+        "corpus_mismatch",
+        "seeds",
+        "generate_config",
+        "model_generate_config",
+        "token_usage",
+        "role_usage",
+        "expected_trials"
+      ],
+      "title": "RunFacts",
+      "type": "object"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Token usage as Inspect reports it; None where the provider reported nothing.\n\n`input_tokens` excludes cache reads and writes, so it need not add up to `total_tokens`\nwith `output_tokens` alone.",
+      "properties": {
+        "input_tokens": {
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "input_tokens_cache_read": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens Cache Read"
+        },
+        "input_tokens_cache_write": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens Cache Write"
+        },
+        "output_tokens": {
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reasoning Tokens"
+        },
+        "total_cost": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Total Cost"
+        },
+        "total_tokens": {
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens",
+        "input_tokens_cache_read",
+        "input_tokens_cache_write",
+        "reasoning_tokens",
+        "total_tokens",
+        "total_cost"
+      ],
+      "title": "TokenUsage",
+      "type": "object"
+    },
+    "TrialLabel": {
+      "additionalProperties": false,
+      "description": "The outcome label of one trial and the facts that decided it.\n\nThe check values are None when they were not read (an errored sample, or a limit hit\nwhile the model API was failing) or are missing or invalid (a grader error).",
+      "properties": {
+        "epoch": {
+          "title": "Epoch",
+          "type": "integer"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "control",
+            "template"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Limit"
+        },
+        "note_delivered": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Outcome"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_leaked": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sample_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Sample Id"
+        },
+        "sent_to_watched_address": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CheckResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "task_completed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Task Completed"
+        },
+        "template_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Template Id"
+        },
+        "user_task": {
+          "title": "User Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sample_id",
+        "epoch",
+        "user_task",
+        "template_id",
+        "kind",
+        "outcome",
+        "limit",
+        "task_completed",
+        "record_leaked",
+        "sent_to_watched_address",
+        "note_delivered",
+        "evidence"
+      ],
+      "title": "TrialLabel",
+      "type": "object"
+    },
+    "UserTaskUtility": {
+      "additionalProperties": false,
+      "description": "`task_completed` shares of one user task, control and template trials apart.",
+      "properties": {
+        "control": {
+          "$ref": "#/$defs/CheckShare"
+        },
+        "template": {
+          "$ref": "#/$defs/CheckShare"
+        },
+        "user_task": {
+          "title": "User Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "user_task",
+        "control",
+        "template"
+      ],
+      "title": "UserTaskUtility",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Everything `render_markdown` prints, as data. `model_dump_json` round-trips.",
+  "properties": {
+    "attack": {
+      "$ref": "#/$defs/AttackSuccess"
+    },
+    "attack_by_template": {
+      "additionalProperties": {
+        "$ref": "#/$defs/AttackSuccess"
+      },
+      "title": "Attack By Template",
+      "type": "object"
+    },
+    "attempt_completion": {
+      "$ref": "#/$defs/AttemptCompletion"
+    },
+    "attempted": {
+      "$ref": "#/$defs/CheckShare"
+    },
+    "completed": {
+      "$ref": "#/$defs/CheckShare"
+    },
+    "control": {
+      "$ref": "#/$defs/ControlSummary"
+    },
+    "control_trials": {
+      "title": "Control Trials",
+      "type": "integer"
+    },
+    "delivered": {
+      "title": "Delivered",
+      "type": "integer"
+    },
+    "delivery": {
+      "$ref": "#/$defs/CheckShare"
+    },
+    "facts": {
+      "$ref": "#/$defs/RunFacts"
+    },
+    "incomplete": {
+      "title": "Incomplete",
+      "type": "boolean"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ItemResult"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "labels": {
+      "items": {
+        "$ref": "#/$defs/TrialLabel"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "level": {
+      "title": "Level",
+      "type": "number"
+    },
+    "limits": {
+      "items": {
+        "$ref": "#/$defs/LimitRow"
+      },
+      "title": "Limits",
+      "type": "array"
+    },
+    "not_run": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Not Run"
+    },
+    "template_trials": {
+      "title": "Template Trials",
+      "type": "integer"
+    },
+    "trials": {
+      "title": "Trials",
+      "type": "integer"
+    },
+    "utility_by_user_task": {
+      "items": {
+        "$ref": "#/$defs/UserTaskUtility"
+      },
+      "title": "Utility By User Task",
+      "type": "array"
+    },
+    "utility_control": {
+      "$ref": "#/$defs/CheckShare"
+    },
+    "utility_template": {
+      "$ref": "#/$defs/CheckShare"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "facts",
+    "level",
+    "warnings",
+    "incomplete",
+    "trials",
+    "not_run",
+    "control_trials",
+    "template_trials",
+    "attack",
+    "attack_by_template",
+    "delivered",
+    "attempted",
+    "completed",
+    "attempt_completion",
+    "utility_control",
+    "utility_template",
+    "utility_by_user_task",
+    "control",
+    "delivery",
+    "items",
+    "limits",
+    "labels"
+  ],
+  "title": "RunSummary",
+  "type": "object"
+}
