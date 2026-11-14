@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A React application under `apps/dashboard`, scaffolded with the Nx React generator (placeholder
+  page only).
+
 ### Changed
 
 - The Python package moved from the repository root to `packages/probo/` and is registered as
