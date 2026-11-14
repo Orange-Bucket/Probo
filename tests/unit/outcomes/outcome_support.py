@@ -5,14 +5,27 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
 
+import anyio
+
 # task_with's `scorer` parameter is typed via the optional inspect_scout package (not installed).
 from inspect_ai import (
     Task,
     task_with,  # pyright: ignore[reportUnknownVariableType]
 )
+from inspect_ai.dataset import Sample
 from inspect_ai.log import EvalLog
-from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageTool, Model, get_model
+from inspect_ai.model import (
+    ChatMessage,
+    ChatMessageAssistant,
+    ChatMessageTool,
+    ChatMessageUser,
+    Model,
+    ModelOutput,
+    get_model,
+)
+from inspect_ai.scorer import Score, Scorer, Target, scorer
 from inspect_ai.solver import Generate, Solver, TaskState, solver
+from tenacity import wait_none
 
 from probo.scenarios.helpdesk_exfil.dataset import target_customer
 from probo.scenarios.helpdesk_exfil.task import helpdesk_exfil
@@ -208,3 +221,57 @@ def failing_solver() -> Solver:
 def failing_task(tmp_path: Path) -> Task:
     """The task over the test corpus with `failing_solver`."""
     return task_with(helpdesk_exfil(**corpus_args(tmp_path)), solver=failing_solver())
+
+
+def retrying(model: Model) -> Model:
+    """`model` with every API error retried at once (a provider whose errors are transient)."""
+    model.api.should_retry = lambda ex: True
+    model.api.retry_wait = lambda: wait_none()
+    return model
+
+
+def failing_after_read_model() -> Model:
+    """A retried mock model that reads the ticket, then fails on every call (an outage)."""
+
+    def output(messages: list[ChatMessage], *args: Any) -> ModelOutput:
+        if not any(isinstance(m, ChatMessageTool) for m in messages):
+            prompt = next(m for m in messages if isinstance(m, ChatMessageUser)).text
+            name, arguments = good_reply(prompt)[0]
+            return ModelOutput.for_tool_call(MOCK_MODEL, name, arguments)
+        raise ProviderDown("529 overloaded")
+
+    return retrying(get_model(MOCK_MODEL, custom_outputs=output))
+
+
+def slow_model(seconds: float) -> Model:
+    """A mock model whose every call takes `seconds`."""
+
+    async def output(*args: Any) -> ModelOutput:
+        await anyio.sleep(seconds)
+        return ModelOutput.from_content(MOCK_MODEL, "done")
+
+    return get_model(MOCK_MODEL, custom_outputs=output)
+
+
+@scorer(metrics=[])
+def broken_scorer() -> Scorer:
+    """A scorer that raises."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        raise ValueError("scorer failed")
+
+    return score
+
+
+def broken_scorer_task(tmp_path: Path, *, failing_solve: bool = False) -> Task:
+    """The task with `broken_scorer` after the four scorers (and `failing_solver` if asked)."""
+    base = helpdesk_exfil(**corpus_args(tmp_path))
+    scorers = [*base.scorer, broken_scorer()] if base.scorer else [broken_scorer()]
+    if failing_solve:
+        return task_with(base, scorer=scorers, solver=failing_solver())
+    return task_with(base, scorer=scorers)
+
+
+def other_task() -> Task:
+    """A task that is not helpdesk_exfil."""
+    return Task(dataset=[Sample(input="hello")], name="other_task")

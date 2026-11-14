@@ -15,7 +15,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="probo", description="Probo evaluation tools.")
     commands = parser.add_subparsers(dest="command", required=True)
     report = commands.add_parser("report", help="Summarise a finished helpdesk_exfil log.")
-    report.add_argument("log", metavar="LOG", help="Inspect log file (.eval or .json).")
+    report.add_argument(
+        "log", metavar="LOG", help="Inspect log (.eval or .json): a path or a remote URI."
+    )
     report.add_argument(
         "--format", choices=("markdown", "json"), default="markdown", help="Output format."
     )
@@ -28,32 +30,45 @@ def _error(message: str) -> int:
     return 1
 
 
+def _is_remote(location: str) -> bool:
+    return "://" in location
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line with `argv` (default `sys.argv[1:]`); returns the exit status.
 
-    Exits 1 with a one-line error on stderr when the log is missing or cannot be read or
-    summarised; argparse exits 2 for invalid arguments.
+    A remote LOG (a URI such as `s3://...`) is passed to Inspect unchanged. Exits 1 with a
+    one-line error on stderr when the log is missing, is a directory, cannot be read or
+    summarised, or is the output file; argparse exits 2 for invalid arguments. An incomplete
+    run still exits 0: its report states that it is incomplete.
     """
     args = _parser().parse_args(argv)
-    path = Path(args.log)
-    if not path.is_file():
-        return _error(f"log not found: {path}")
+    location: str = args.log
+    output: str | None = args.output
+    if not _is_remote(location):
+        path = Path(location)
+        if path.is_dir():
+            return _error(f"log is a directory, not a log file: {location}")
+        if not path.is_file():
+            return _error(f"log not found: {location}")
+        if output is not None and Path(output).resolve() == path.resolve():
+            return _error(f"refusing to write the report over the log itself: {output}")
     try:
-        log = read_eval_log(str(path))
+        log = read_eval_log(location)
     except Exception as ex:
-        return _error(f"cannot read log {path}: {type(ex).__name__}: {ex}")
+        return _error(f"cannot read log {location}: {type(ex).__name__}: {ex}")
     try:
         summary = summarise(log)
     except ValueError as ex:
-        return _error(f"cannot summarise log {path}: {ex}")
+        return _error(f"cannot summarise log {location}: {ex}")
     text = render_markdown(summary) if args.format == "markdown" else summary.model_dump_json()
-    if args.output is None:
+    if output is None:
         sys.stdout.write(text if text.endswith("\n") else text + "\n")
         return 0
     try:
-        Path(args.output).write_text(text, encoding="utf-8")
+        Path(output).write_text(text, encoding="utf-8")
     except OSError as ex:
-        return _error(f"cannot write {args.output}: {ex}")
+        return _error(f"cannot write {output}: {ex}")
     return 0
 
 

@@ -7,7 +7,9 @@ import pytest
 
 from probo.report import (
     EVIDENCE_SENTENCE,
+    GRADER_SENTENCE,
     INDEPENDENCE_SENTENCE,
+    TERMS,
     CheckShare,
     RunSummary,
     render_markdown,
@@ -84,3 +86,17 @@ def test_absent_rates_are_printed_as_absent(tmp_path: Path) -> None:
     assert text.count("absent (denominator is 0)") >= 8
     assert "| provider_error | excluded | 2 | 2 |" in text
     assert "With an error label: 2 (provider_error=2)." in text
+    for task in ("reply-order-status", "reply-delivery-date"):
+        assert f"| {task}/none | 1 | control | provider_error |" in text
+        assert f"| {task}/copy-note | 1 | template | provider_error |" in text
+    assert "error type: ProviderDown" in text
+
+
+def test_terms_and_label_coverage_are_stated(known: RunSummary) -> None:
+    """The report defines its terms and says what the error labels cover."""
+    text = render_markdown(known)
+    assert TERMS in text
+    assert GRADER_SENTENCE in text
+    assert "pooled rows combine templates and user tasks" in INDEPENDENCE_SENTENCE
+    assert "| attempted, delivered template trials | 4 |" in text
+    assert "| delivered, template trials | 8 |" in text

@@ -9,7 +9,8 @@ from inspect_ai.log import EvalLog
 from probo.cli import main
 from probo.report import EVIDENCE_SENTENCE, RunSummary, render_markdown, summarise
 
-from .outcomes.outcome_support import leak, run_plan
+from .outcomes.outcome_support import corpus_args, leak, other_task, run_plan
+from .scenarios.helpdesk_support import run
 
 
 @pytest.fixture(scope="module")
@@ -76,3 +77,38 @@ def test_bad_arguments_exit_2(log: EvalLog) -> None:
     with pytest.raises(SystemExit) as exit_info:
         main(["report", log.location, "--format", "html"])
     assert exit_info.value.code == 2
+
+
+def test_directory_is_not_a_log(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A directory exits 1 saying so."""
+    assert main(["report", str(tmp_path)]) == 1
+    assert "is a directory" in one_line_error(capsys)
+
+
+def test_output_over_the_log_is_refused(log: EvalLog, capsys: pytest.CaptureFixture[str]) -> None:
+    """Writing the report over the log itself is refused and the log is kept."""
+    before = Path(log.location).read_bytes()
+    assert main(["report", log.location, "--output", log.location]) == 1
+    assert "refusing to write the report over the log" in one_line_error(capsys)
+    assert Path(log.location).read_bytes() == before
+
+
+def test_remote_uri_is_passed_to_inspect(log: EvalLog, capsys: pytest.CaptureFixture[str]) -> None:
+    """A URI is read by Inspect unchanged, not checked as a local path."""
+    assert main(["report", Path(log.location).as_uri()]) == 0
+    assert capsys.readouterr().out == render_markdown(summarise(log))
+
+
+def test_log_without_samples(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A run logged without samples exits 1 with one line that a CLI user can act on."""
+    empty = run(tmp_path / "logs", task_args=corpus_args(tmp_path), log_samples=False)
+    assert main(["report", empty.location]) == 1
+    line = one_line_error(capsys)
+    assert "cannot summarise log" in line and "logged without samples" in line
+
+
+def test_log_of_another_task(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Another task's log exits 1 naming the task."""
+    other = run(tmp_path / "logs", task=other_task())
+    assert main(["report", other.location]) == 1
+    assert "'other_task', not helpdesk_exfil" in one_line_error(capsys)
