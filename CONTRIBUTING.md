@@ -47,6 +47,18 @@ uv lock --check              # uv.lock matches pyproject.toml
 Run `uv run ruff format .` to apply formatting. Pyright runs in strict mode over `src/` and
 `tests/`; do not silence an error with `# pyright: ignore` without a comment saying why.
 
+## Dashboard
+
+The React application under `apps/dashboard` is an [Nx](https://nx.dev/) project in a
+[pnpm](https://pnpm.io/) workspace. You need Node.js 24 and pnpm (the version is pinned by
+`packageManager` in `package.json`).
+
+```bash
+pnpm install                                                # install the workspace dependencies
+pnpm nx serve dashboard                                     # development server on http://localhost:4200
+pnpm nx run-many -t lint typecheck test build -p dashboard  # checks that must pass
+```
+
 ## Tests
 
 - Tests must not need network access or API keys. Use Inspect's `mockllm` model with scripted

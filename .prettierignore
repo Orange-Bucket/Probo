@@ -1,0 +1,12 @@
+# Prettier formats only the JavaScript side of the workspace: the apps and the root
+# JavaScript, TypeScript and Nx configuration. Python, docs, CI files and published
+# findings are formatted by their own tools, or not at all.
+/*
+!/apps
+!/*.mjs
+!/*.mts
+!/tsconfig.base.json
+!/nx.json
+!/package.json
+/dist
+/coverage
