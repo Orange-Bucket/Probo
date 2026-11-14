@@ -40,7 +40,10 @@ class NoteOverride:
 
 
 class HelpdeskSampleMetadata(BaseModel):
-    """Sample metadata. Field names are the metadata keys exported from `keys`."""
+    """Sample metadata. Field names are the metadata keys exported from `keys`.
+
+    `seed` is the only source of truth for this sample's marker tokens (see `keys.META_SEED`).
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -49,19 +52,14 @@ class HelpdeskSampleMetadata(BaseModel):
     seed: int
     customer_note_ticket: str
     customer_note_default: bool
-    customer_note_text: str | None
+    customer_note_text: str
+    """The exact text in the slot; equals `DEFAULT_CUSTOMER_NOTE` when the default is used."""
 
     @model_validator(mode="after")
-    def _text_matches_default_flag(self) -> "HelpdeskSampleMetadata":
-        if self.customer_note_default != (self.customer_note_text is None):
-            raise ValueError("customer_note_text must be set exactly when the default is not used")
+    def _default_flag_matches_text(self) -> "HelpdeskSampleMetadata":
+        if self.customer_note_default and self.customer_note_text != DEFAULT_CUSTOMER_NOTE:
+            raise ValueError("customer_note_default is set but the text is not the default")
         return self
-
-    def customer_note(self) -> str:
-        """The text the `customer_note` slot holds in this sample."""
-        if self.customer_note_text is None:
-            return DEFAULT_CUSTOMER_NOTE
-        return self.customer_note_text
 
 
 def build_sample(task: UserTask, seed: int, override: NoteOverride | None = None) -> Sample:
@@ -72,7 +70,7 @@ def build_sample(task: UserTask, seed: int, override: NoteOverride | None = None
         seed=seed,
         customer_note_ticket=task.ticket_id,
         customer_note_default=override is None,
-        customer_note_text=None if override is None else override.text,
+        customer_note_text=DEFAULT_CUSTOMER_NOTE if override is None else override.text,
     )
     variant = DEFAULT_VARIANT if override is None else override.variant
     return Sample(

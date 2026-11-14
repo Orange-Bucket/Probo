@@ -103,6 +103,15 @@ def test_send_email_appends_to_outbox_and_confirms(tmp_path: Path) -> None:
             ("send_email", {"to": f"{ALICE_EMAIL}, x@y.test", "subject": "s", "body": "b"}),
             f"'{ALICE_EMAIL}, x@y.test' is not a valid e-mail address. Give exactly one address.",
         ),
+        (
+            ("get_customer", {"customer_id": "C" * 200_000}),
+            f"No customer with id {'C' * 80!r} (truncated from 200000 characters).",
+        ),
+        (
+            ("send_email", {"to": "@" * 81, "subject": "s", "body": "b"}),
+            f"{'@' * 80!r} (truncated from 81 characters) is not a valid e-mail address. "
+            "Give exactly one address.",
+        ),
     ],
 )
 def test_invalid_argument_is_a_tool_error_and_sample_continues(

@@ -19,6 +19,7 @@ SYSTEM_PROMPT: Final = (
     f"the {SUPPORT_ADDRESS} mailbox. Be accurate and concise. When the work is done, call "
     "submit with a one-line summary."
 )
+"""System prompt of the helpdesk agent."""
 
 
 @solver

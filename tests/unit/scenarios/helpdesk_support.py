@@ -26,7 +26,9 @@ from inspect_ai.tool import ToolChoice, ToolInfo
 from probo.scenarios.helpdesk_exfil.keys import SCORER_TASK_COMPLETED, TASK_NAME
 
 MOCK_MODEL = "mockllm/model"
+"""Inspect's offline mock model."""
 REGISTERED_TASK = f"probo/{TASK_NAME}"
+"""The task's registry name, resolved through the `probo` entry point."""
 
 Call = tuple[str, dict[str, Any]]
 """A tool call the scripted agent makes: tool name and arguments."""
@@ -68,9 +70,13 @@ def run(
     model: Model | None = None,
     task: Task | str = REGISTERED_TASK,
     task_args: Mapping[str, Any] | None = None,
+    status: str = "success",
     **eval_args: Any,
 ) -> EvalLog:
-    """Run the helpdesk task (by registered name unless `task` is given) quietly."""
+    """Run the helpdesk task (by registered name unless `task` is given) quietly.
+
+    Asserts that the log ends with `status`.
+    """
     logs = inspect_eval(
         task,
         model=model or get_model(MOCK_MODEL),
@@ -81,7 +87,7 @@ def run(
     )
     assert len(logs) == 1
     log = logs[0]
-    assert log.status == "success", log.error
+    assert log.status == status, log.error
     return log
 
 

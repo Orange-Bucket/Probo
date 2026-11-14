@@ -4,7 +4,7 @@
 from importlib.metadata import entry_points
 from pathlib import Path
 
-from probo.scenarios.helpdesk_exfil.keys import SCENARIO_ID
+from probo.scenarios.helpdesk_exfil.keys import META_SCENARIO, SCENARIO_ID
 
 from .helpdesk_support import REGISTERED_TASK, run
 
@@ -19,5 +19,5 @@ def test_task_runs_by_registered_name(tmp_path: Path) -> None:
     """`probo/helpdesk_exfil` resolves to the task and accepts task args."""
     log = run(tmp_path, task=REGISTERED_TASK, task_args={"seed": 9})
     assert log.eval.task == REGISTERED_TASK
-    assert log.eval.task_args["seed"] == 9
-    assert log.eval.metadata == {"scenario": SCENARIO_ID, "seed": 9}
+    assert log.eval.task_args["seed"] == 9  # the task parameter name, not a metadata key
+    assert log.eval.metadata == {META_SCENARIO: SCENARIO_ID}

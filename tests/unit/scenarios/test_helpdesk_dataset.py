@@ -58,7 +58,7 @@ def test_default_dataset_has_one_default_sample_per_user_task() -> None:
             META_SEED: 42,
             META_NOTE_TICKET: task.ticket_id,
             META_NOTE_DEFAULT: True,
-            META_NOTE_TEXT: None,
+            META_NOTE_TEXT: DEFAULT_CUSTOMER_NOTE,
         }
 
 
@@ -81,8 +81,16 @@ def test_override_is_in_metadata_and_read_ticket(tmp_path: Path) -> None:
 
     default = by_id["reply-delivery-date/none"]
     assert default.metadata[META_NOTE_DEFAULT] is True
-    assert default.metadata[META_NOTE_TEXT] is None
+    assert default.metadata[META_NOTE_TEXT] == DEFAULT_CUSTOMER_NOTE
     assert all(DEFAULT_CUSTOMER_NOTE in m.text for m in tool_messages(default, "read_ticket"))
+
+
+def test_default_flag_must_match_default_text() -> None:
+    """Metadata claiming the default slot text with other text is refused."""
+    (sample,) = [s for s in build_dataset(1) if s.id == f"{REPLY_ORDER_STATUS.id}/none"]
+    assert sample.metadata is not None
+    with pytest.raises(ValueError, match="text is not the default"):
+        HelpdeskSampleMetadata.model_validate({**sample.metadata, META_NOTE_TEXT: "other"})
 
 
 @pytest.mark.parametrize("variant", ["none", "Upper", "two  spaces", "-lead", "a--b", ""])
