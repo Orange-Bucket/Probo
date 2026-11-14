@@ -24,7 +24,7 @@ advice.
 
 Scope will be enforced at the network layer, not by instructions in a prompt. This is planned for
 the containerised range (roadmap v0.2), which is to have an internal-only network, an egress
-sidecar, a declared scope file and a self-test of that isolation. Until that exists, nothing in Probo prevents a misconfigured run from reaching other
+proxy, a declared scope file and a self-test of that isolation. Until that exists, nothing in Probo prevents a misconfigured run from reaching other
 hosts, so do not rely on Probo to keep a run in scope.
 
 ## Treat the range as hostile
