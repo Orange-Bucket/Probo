@@ -31,3 +31,22 @@ updates:
       tooling:
         patterns: ["*"]
         exclude-patterns: ["inspect-ai", "mcp"]
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: build
+      prefix-development: build
+      include: scope
+    # Nx and its plugins are upgraded with `nx migrate`, which also applies their code
+    # migrations; Dependabot would only bump the versions.
+    ignore:
+      - dependency-name: "nx"
+      - dependency-name: "@nx/*"
+    groups:
+      workspace-tooling:
+        patterns: ["*"]

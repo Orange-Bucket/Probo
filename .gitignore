@@ -9,3 +9,8 @@ logs/
 .env
 # Logs of published findings are kept.
 !findings/**/*.eval
+
+node_modules/
+.nx/cache
+.nx/workspace-data
+.nx/migrate-runs
