@@ -11,6 +11,9 @@ dependencies = [
     "pydantic>=2.13",
 ]
 
+[project.scripts]
+probo = "probo.cli:main"
+
 [project.entry-points.inspect_ai]
 probo = "probo._registry"
 
