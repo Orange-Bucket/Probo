@@ -1,0 +1,58 @@
+{
+  "name": "probo",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/probo/src",
+  "tags": [
+    "lang:python"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "uv run ruff check packages/probo && uv run ruff format --check packages/probo",
+        "cwd": "."
+      },
+      "cache": false
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "uv run pyright packages/probo",
+        "cwd": "."
+      },
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "uv run pytest packages/probo/tests -q -m \"not docker\"",
+        "cwd": "."
+      },
+      "cache": false
+    },
+    "test-docker": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "uv run pytest packages/probo/tests -q -m docker",
+        "cwd": "."
+      },
+      "cache": false
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": [
+        "{workspaceRoot}/dist/packages/probo"
+      ],
+      "options": {
+        "command": "uv build --package probo --out-dir dist/packages/probo --clear",
+        "cwd": "."
+      },
+      "cache": false
+    }
+  }
+}

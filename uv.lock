@@ -8,6 +8,21 @@ resolution-markers = [
     "python_full_version < '3.11.5'",
 ]
 
+[manifest]
+members = [
+    "probo",
+]
+
+[manifest.dependency-groups]
+dev = [
+    { name = "mcp", specifier = ">=2.3,<3" },
+    { name = "openai", specifier = ">=2" },
+    { name = "probo", editable = "packages/probo" },
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.9" },
+]
+
 [[package]]
 name = "agent-client-protocol"
 version = "1.0.0"
@@ -1904,7 +1919,7 @@ wheels = [
 [[package]]
 name = "probo"
 version = "0.1.0"
-source = { editable = "." }
+source = { editable = "packages/probo" }
 dependencies = [
     { name = "inspect-ai" },
     { name = "pydantic" },
@@ -1915,15 +1930,6 @@ ollama = [
     { name = "openai" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "mcp" },
-    { name = "openai" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "inspect-ai", specifier = "==0.3.289" },
@@ -1931,15 +1937,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13" },
 ]
 provides-extras = ["ollama"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mcp", specifier = ">=2.3,<3" },
-    { name = "openai", specifier = ">=2" },
-    { name = "pyright", specifier = ">=1.1" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.9" },
-]
 
 [[package]]
 name = "propcache"

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The Python package moved from the repository root to `packages/probo/` and is registered as
+  the Nx project `probo` with `lint`, `typecheck`, `test`, `test-docker` and `build` targets. The
+  root `pyproject.toml` is now a uv workspace that holds the development tools and the Ruff,
+  Pyright and pytest settings; `uv sync` and the `uv run` commands work from the root as before.
+  Build the package with `uv build --package probo`. The package has its own short README, which
+  becomes the long description in the wheel and sdist metadata, and the sdist no longer contains
+  `uv.lock`.
+
 ## [0.1.0] - 2026-11-14
 
 ### Added

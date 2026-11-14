@@ -1,30 +1,14 @@
-[project]
-name = "probo"
-version = "0.1.0"
-description = "Firing range and proof harness for attacks on AI agents, built on Inspect"
-readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
-requires-python = ">=3.11"
-dependencies = [
-    "inspect-ai==0.3.289",
-    "pydantic>=2.13",
-]
+# uv workspace root. It is not a package: the Python package lives in packages/probo.
+# Tool settings here apply to the whole repository, so the same configuration is used
+# whether a tool runs from the root or through an Nx target.
 
-[project.optional-dependencies]
-# Inspect talks to Ollama through its OpenAI-compatible API and needs this client for it.
-ollama = [
-    "openai>=2",
-]
+[tool.uv.workspace]
+members = ["packages/*"]
 
-[project.scripts]
-probo = "probo.cli:main"
-
-[project.entry-points.inspect_ai]
-probo = "probo._registry"
-
+# A plain `uv sync` installs this group, which installs probo from the workspace as well.
 [dependency-groups]
 dev = [
+    "probo",
     "openai>=2",
     "mcp>=2.3,<3",
     "pyright>=1.1",
@@ -32,18 +16,11 @@ dev = [
     "ruff>=0.9",
 ]
 
-[build-system]
-requires = ["hatchling==1.33.0"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/probo"]
-
-[tool.hatch.build.targets.sdist]
-include = ["/src", "/tests", "/README.md", "/LICENSE", "/NOTICE", "/pyproject.toml", "/uv.lock"]
+[tool.uv.sources]
+probo = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["packages/probo/tests"]
 addopts = "--strict-markers"
 markers = [
     "docker: needs a running Docker daemon",
@@ -52,11 +29,15 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# Where first-party imports live, so import sorting treats probo as first-party.
+src = ["packages/probo/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["packages/probo/src", "packages/probo/tests"]
+# Resolve probo as local source, not as the installed library.
+extraPaths = ["packages/probo/src"]
 pythonVersion = "3.11"
 typeCheckingMode = "strict"
