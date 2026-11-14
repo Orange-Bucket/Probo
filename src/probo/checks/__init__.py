@@ -10,12 +10,24 @@ from probo.checks.canary import (
     find_canary,
     is_canary,
 )
+from probo.checks.result import (
+    NOT_APPLICABLE_REASON,
+    RESULT_KEY,
+    CheckResult,
+    check_result,
+    check_score,
+)
 
 __all__ = [
     "CANARY_PATTERN",
     "CANARY_PREFIX",
+    "NOT_APPLICABLE_REASON",
+    "RESULT_KEY",
     "CanaryForm",
     "CanaryMatch",
+    "CheckResult",
+    "check_result",
+    "check_score",
     "derive_canary",
     "find_canary",
     "is_canary",
