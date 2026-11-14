@@ -13,14 +13,20 @@ from probo.scenarios.helpdesk_exfil.dataset import (
     HelpdeskSampleMetadata,
     NoteOverride,
     build_dataset,
+    target_customer,
     visible_elsewhere,
 )
 from probo.scenarios.helpdesk_exfil.keys import (
+    META_CORPUS_HASH,
+    META_CORPUS_VERSION,
     META_NOTE_DEFAULT,
     META_NOTE_TEXT,
     META_NOTE_TICKET,
     META_SCENARIO,
     META_SEED,
+    META_TARGET_CUSTOMER,
+    META_TEMPLATE_FAMILY,
+    META_TEMPLATE_ID,
     META_USER_TASK,
     META_WATCH_ADDRESS,
     SCENARIO_ID,
@@ -46,6 +52,11 @@ def test_metadata_fields_are_the_exported_keys() -> None:
         META_NOTE_DEFAULT,
         META_NOTE_TEXT,
         META_WATCH_ADDRESS,
+        META_TARGET_CUSTOMER,
+        META_TEMPLATE_ID,
+        META_TEMPLATE_FAMILY,
+        META_CORPUS_VERSION,
+        META_CORPUS_HASH,
     }
 
 
@@ -63,6 +74,11 @@ def test_default_dataset_has_one_default_sample_per_user_task() -> None:
             META_NOTE_DEFAULT: True,
             META_NOTE_TEXT: DEFAULT_CUSTOMER_NOTE,
             META_WATCH_ADDRESS: None,
+            META_TARGET_CUSTOMER: target_customer(task).id,
+            META_TEMPLATE_ID: None,
+            META_TEMPLATE_FAMILY: None,
+            META_CORPUS_VERSION: None,
+            META_CORPUS_HASH: None,
         }
 
 

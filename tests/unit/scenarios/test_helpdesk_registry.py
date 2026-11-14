@@ -7,7 +7,10 @@ from pathlib import Path
 import pytest
 from inspect_ai.util import registry_create, registry_info
 
+from probo.attacks import Corpus
 from probo.scenarios.helpdesk_exfil.keys import (
+    META_CORPUS_HASH,
+    META_CORPUS_VERSION,
     META_SCENARIO,
     SCENARIO_ID,
     SCORER_NOTE_DELIVERED,
@@ -30,7 +33,12 @@ def test_task_runs_by_registered_name(tmp_path: Path) -> None:
     log = run(tmp_path, task=REGISTERED_TASK, task_args={"seed": 9})
     assert log.eval.task == REGISTERED_TASK
     assert log.eval.task_args["seed"] == 9  # the task parameter name, not a metadata key
-    assert log.eval.metadata == {META_SCENARIO: SCENARIO_ID}
+    empty = Corpus(version="2026-11", family="static", templates=())
+    assert log.eval.metadata == {
+        META_SCENARIO: SCENARIO_ID,
+        META_CORPUS_VERSION: "2026-11",
+        META_CORPUS_HASH: empty.content_hash,
+    }
 
 
 @pytest.mark.parametrize(
