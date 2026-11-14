@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Shared helpers for the contract tests: scripted mockllm runs and Docker bookkeeping."""
+"""Shared helpers for the contract tests: scripted mockllm runs, a recording scorer and Docker
+bookkeeping."""
 
 import subprocess
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -11,8 +13,11 @@ from uuid import uuid4
 # inspect_scout package (not installed).
 from inspect_ai import Task, task_with  # pyright: ignore[reportUnknownVariableType]
 from inspect_ai import eval as inspect_eval  # pyright: ignore[reportUnknownVariableType]
-from inspect_ai.log import EvalLog, EvalSample
+from inspect_ai.event import Event
+from inspect_ai.log import EvalLog, EvalSample, transcript
 from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput, get_model
+from inspect_ai.scorer import Score, Scorer, Target, scorer
+from inspect_ai.solver import TaskState
 from inspect_ai.tool import ToolChoice, ToolInfo
 
 FIXTURES = Path(__file__).resolve().parent
@@ -47,6 +52,29 @@ def scripted(text: str, calls: list[str] | None = None) -> Model:
         return ModelOutput.from_content(MOCK_MODEL, text)
 
     return mock_model(reply)
+
+
+@dataclass(frozen=True)
+class ScorerView:
+    """What a scorer saw when it ran."""
+
+    events: list[Event]
+    """`transcript().events` at the time the scorer ran."""
+    output: ModelOutput
+    """`state.output`."""
+    messages: list[ChatMessage]
+    """`state.messages`."""
+
+
+@scorer(metrics=[])
+def record_view(views: list[ScorerView]) -> Scorer:
+    """A scorer that appends what it sees (transcript events, output, messages) to `views`."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        views.append(ScorerView(list(transcript().events), state.output, list(state.messages)))
+        return Score(value=1.0)
+
+    return score
 
 
 def run_eval(

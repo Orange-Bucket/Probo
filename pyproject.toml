@@ -11,6 +11,12 @@ dependencies = [
     "pydantic>=2.13",
 ]
 
+[project.optional-dependencies]
+# Inspect talks to Ollama through its OpenAI-compatible API and needs this client for it.
+ollama = [
+    "openai>=2",
+]
+
 [project.scripts]
 probo = "probo.cli:main"
 
@@ -19,6 +25,7 @@ probo = "probo._registry"
 
 [dependency-groups]
 dev = [
+    "openai>=2",
     "mcp>=2.3,<3",
     "pyright>=1.1",
     "pytest>=8",
