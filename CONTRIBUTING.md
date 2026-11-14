@@ -1,7 +1,7 @@
 # Contributing to Probo
 
-Thank you for considering a contribution. Probo is pre-release: the repository holds the project
-scaffold and contract tests, and the harness itself is still being built (see the roadmap in
+Thank you for considering a contribution. Probo 0.1.0 is a first thin slice with one scenario, and
+much of the harness is still to be built (see the roadmap in
 [README.md](README.md#roadmap)). Before starting on anything larger than a small fix, open an
 issue in the [issue tracker](https://github.com/Orange-Bucket/Probo/issues) so the approach can be
 agreed first.

@@ -2,12 +2,11 @@
 
 ## Supported versions
 
-No version of Probo has been released yet. Once releases exist, only the latest release will
-receive security fixes.
+Only the latest release receives security fixes. The first release is 0.1.0.
 
 | Version | Supported |
 | ------- | --------- |
-| Latest release | Yes (once there is one) |
+| Latest release | Yes |
 | Older releases | No |
 | Unreleased `main` | Fixes land here first |
 
@@ -41,13 +40,13 @@ authorised to test.
   you are credited in the advisory unless you ask not to be. Please do not disclose the issue
   publicly until the advisory is published or a disclosure date has been agreed.
 
-Probo is a small, pre-release project, so these are targets, not guarantees.
+Probo is a small project, so these are targets, not guarantees.
 
 ## Scope
 
-Probo is meant to contain deliberately vulnerable scenario applications (none exist yet; see the
-[README](README.md#status-pre-release)). Their intended flaws, such as an agent that can be made to
-e-mail a record out, are vulnerable by design and are not security issues. Reports that a bundled
+Probo contains deliberately vulnerable scenario applications (one in 0.1.0, `helpdesk-exfil`; see
+the [README](README.md#how-a-trial-is-judged)). Their intended flaws, such as an agent that can be
+made to e-mail a record out, are vulnerable by design and are not security issues. Reports that a bundled
 scenario can be attacked in the way it was built to be attacked are out of scope.
 
 In scope is anything in Probo itself that lets range content, scenario code, a model's output or
