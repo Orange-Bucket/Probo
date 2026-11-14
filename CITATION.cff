@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: Probo
+type: software
+abstract: >-
+  A firing range and proof harness for attacks on AI agents, built as an
+  extension package on Inspect. Pre-release.
+authors:
+  - name: "Probo contributors"
+repository-code: "https://github.com/Orange-Bucket/Probo"
+license: Apache-2.0
+keywords:
+  - AI agents
+  - prompt injection
+  - security evaluation
+  - Inspect
