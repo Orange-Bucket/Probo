@@ -41,6 +41,7 @@ uv run ruff format --check . # formatting
 uv run pyright               # type-check, strict mode
 uv run pytest                # tests
 uv build                     # the package builds
+uv lock --check              # uv.lock matches pyproject.toml
 ```
 
 Run `uv run ruff format .` to apply formatting. Pyright runs in strict mode over `src/` and
@@ -55,6 +56,9 @@ Run `uv run ruff format .` to apply formatting. Pyright runs in strict mode over
   is not available. Markers are strict, so an unregistered marker is an error.
 - A test that depends on a property of the host it cannot control must skip with a reason that
   names that property, not fail.
+- In CI the `docker` tests run on one matrix entry, and a skipped test fails the job there, so
+  that a broken runner cannot hide a regression. A new skip condition must not trigger on GitHub's
+  `ubuntu-latest` runners.
 - Every source file starts with `# SPDX-License-Identifier: Apache-2.0`.
 
 ### Adding a contract test

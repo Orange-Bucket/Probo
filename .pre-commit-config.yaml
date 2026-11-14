@@ -12,16 +12,22 @@ repos:
       - id: detect-private-key
       - id: check-merge-conflict
 
-  # Keep rev equal to the ruff version in uv.lock.
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.5
+  # Local hooks run the tools from uv.lock, so hooks and CI always use the same versions.
+  - repo: local
     hooks:
       - id: ruff-check
+        name: ruff check
+        entry: uv run --locked ruff check --fix
+        language: system
+        types_or: [python, pyi]
       - id: ruff-format
-
-  # Keep rev equal to the uv version pinned in .github/workflows/ci.yml.
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.13.8
-    hooks:
+        name: ruff format
+        entry: uv run --locked ruff format
+        language: system
+        types_or: [python, pyi]
       - id: uv-lock
-        args: [--check]
+        name: uv lock --check
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false

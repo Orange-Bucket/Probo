@@ -9,6 +9,6 @@
 ## Checklist
 
 - [ ] Tests added or updated
-- [ ] `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright` and `uv run pytest tests` pass
+- [ ] `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run pytest tests` and `uv build` pass
 - [ ] CHANGELOG.md updated, if the change is user-visible
 - [ ] PR title follows Conventional Commits (`type(scope): description`)

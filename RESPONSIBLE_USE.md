@@ -2,7 +2,8 @@
 
 Probo is a harness for attacking AI agents. This page sets out what it is for and how it is meant
 to be run. Probo is pre-release and does not yet contain any scenario or attack (see the
-[README](README.md#status-pre-release)); this policy applies from the first release that does.
+[README](README.md#status-pre-release)). This policy applies now, to every use of the code in this
+repository and to every contribution, and will continue to apply to releases.
 
 ## What Probo is for
 

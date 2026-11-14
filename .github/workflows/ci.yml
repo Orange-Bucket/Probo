@@ -151,9 +151,10 @@ jobs:
               if name not in files:
                   errors.append(f"{label} is missing {name}")
 
-          for name in ("probo/__init__.py", "probo/py.typed", f"{dist_info}/licenses/LICENSE"):
+          for name in ("probo/__init__.py", "probo/py.typed",
+                       f"{dist_info}/licenses/LICENSE", f"{dist_info}/licenses/NOTICE"):
               require(wheel_files, name, "wheel")
-          for name in ("PKG-INFO", "pyproject.toml", "LICENSE", "README.md",
+          for name in ("PKG-INFO", "pyproject.toml", "LICENSE", "NOTICE", "README.md",
                        "src/probo/__init__.py", "src/probo/py.typed"):
               require(sdist_files, name, "sdist")
           if "License-Expression: Apache-2.0" not in metadata:
@@ -161,7 +162,8 @@ jobs:
           for name in sorted(wheel_files):
               if not name.startswith(("probo/", f"{dist_info}/")):
                   errors.append(f"wheel has unexpected file {name}")
-          sdist_root_files = {".gitignore", "LICENSE", "PKG-INFO", "README.md", "pyproject.toml", "uv.lock"}
+          sdist_root_files = {".gitignore", "LICENSE", "NOTICE", "PKG-INFO", "README.md",
+                              "pyproject.toml", "uv.lock"}
           for name in sorted(sdist_files):
               if not name.startswith(("src/", "tests/")) and name not in sdist_root_files:
                   errors.append(f"sdist has unexpected file {name}")

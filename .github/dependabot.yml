@@ -5,7 +5,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    # Let a new release age before it is proposed; security updates are not delayed.
+    # Let a new release age before it is proposed.
     cooldown:
       default-days: 7
     commit-message:
@@ -26,10 +26,8 @@ updates:
       prefix-development: build
       include: scope
     groups:
-      # inspect-ai is pinned exactly and the contract tests exist to vet each bump, so it
-      # stays out of the groups and always gets a pull request of its own.
-      dev-dependencies:
-        dependency-type: development
-      runtime-dependencies:
-        dependency-type: production
-        exclude-patterns: ["inspect-ai"]
+      # The contract tests exist to vet each inspect-ai and mcp bump, so those two stay
+      # out of the group and always get a pull request of their own.
+      tooling:
+        patterns: ["*"]
+        exclude-patterns: ["inspect-ai", "mcp"]
