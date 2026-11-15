@@ -21,6 +21,17 @@ export interface Finding {
   manifest: Manifest | null;
 }
 
+/** The scalar top-level entries of a manifest, as text; nested values are left out. */
+export function manifestRows(manifest: Manifest): [string, string][] {
+  return Object.entries(manifest).flatMap(([key, value]): [string, string][] =>
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+      ? [[key, String(value)]]
+      : [],
+  );
+}
+
 const FINDING_FILE = /(?:^|\/)findings\/([^/]+)\/[^/]+\.json$/;
 
 function byId<T>(files: Record<string, T>): Map<string, T> {

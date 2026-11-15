@@ -1,5 +1,30 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-.page header {
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 1rem;
+.empty {
+  max-width: 32rem;
+  margin: 4rem auto;
+  padding: 2.5rem 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0.625rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  color: var(--accent-text);
+}
+
+.emptyTitle {
+  margin: 1rem 0 0;
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+
+.empty p {
+  margin: 0.5rem 0 0;
 }

@@ -3,6 +3,7 @@ import type { RunSummary } from '../../generated/report';
 import { attackGroups, countsExcluded, countsTotal } from '../../report-text';
 import IntervalBar from '../interval-bar/interval-bar';
 import OutcomeCounts from '../outcome-counts/outcome-counts';
+import SectionCard from '../section-card/section-card';
 
 export interface AttackSuccessProps {
   report: RunSummary;
@@ -14,16 +15,19 @@ export interface AttackSuccessProps {
  */
 export function AttackSuccess({ report }: AttackSuccessProps) {
   return (
-    <section aria-label="Attack success">
-      <h3>Attack success</h3>
+    <SectionCard section="attack-success">
       <p>Template trials only.</p>
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
               <th scope="col">Template</th>
-              <th scope="col">Trials</th>
-              <th scope="col">Excluded</th>
+              <th scope="col" className="num">
+                Trials
+              </th>
+              <th scope="col" className="num">
+                Excluded
+              </th>
               <th scope="col">Per-attempt rate</th>
               <th scope="col">Per-trial rate</th>
             </tr>
@@ -32,8 +36,8 @@ export function AttackSuccess({ report }: AttackSuccessProps) {
             {attackGroups(report).map(([name, attack]) => (
               <tr key={name}>
                 <th scope="row">{name}</th>
-                <td>{countsTotal(attack.counts)}</td>
-                <td>{countsExcluded(attack.counts)}</td>
+                <td className="num">{countsTotal(attack.counts)}</td>
+                <td className="num">{countsExcluded(attack.counts)}</td>
                 <td>
                   <IntervalBar
                     value={attack.per_attempt}
@@ -52,7 +56,7 @@ export function AttackSuccess({ report }: AttackSuccessProps) {
         </table>
       </div>
       <OutcomeCounts report={report} />
-    </section>
+    </SectionCard>
   );
 }
 

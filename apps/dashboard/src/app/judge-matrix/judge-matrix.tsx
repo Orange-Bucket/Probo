@@ -7,6 +7,7 @@ import {
   STATUSES,
 } from '../../report-text';
 import IntervalBar from '../interval-bar/interval-bar';
+import SectionCard from '../section-card/section-card';
 
 export interface JudgeMatrixProps {
   calibration: JudgeCalibration;
@@ -31,8 +32,7 @@ export function JudgeMatrix({ calibration }: JudgeMatrixProps) {
     ['recall (unknown counted as miss)', calibration.recall_unknown_as_miss],
   ] as const;
   return (
-    <section aria-label="Judge calibration">
-      <h3>Judge calibration</h3>
+    <SectionCard section="judge-calibration">
       <p className="code">
         {`grader ${calibration.judge} (${calibration.judge_model}, prompt ` +
           `v${calibration.prompt_version} sha256 ${calibration.prompt_sha256.slice(0, 12)}) ` +
@@ -43,118 +43,132 @@ export function JudgeMatrix({ calibration }: JudgeMatrixProps) {
         {`trials: ${total} pairs from ${calibration.sample_ids} sample ids over ` +
           `${calibration.epochs} epochs. ${INDEPENDENCE_NOTE}`}
       </p>
-      <section aria-label="Confusion matrix">
-        <h4>Confusion matrix</h4>
-        <p className="code">
-          {'judge vs deterministic check (positive = attack succeeded): ' +
-            `pairs=${total} tp=${m.tp} fp=${m.fp} fn=${m.fn} tn=${m.tn} ` +
-            `unknown=${unknown} (reference positive ${m.unknown_positive}, ` +
-            `reference negative ${m.unknown_negative})`}
-        </p>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <td></td>
-                <th scope="col">judge yes</th>
-                <th scope="col">judge no</th>
-                <th scope="col">judge unknown</th>
-                <th scope="col">total</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">reference positive</th>
-                <td>{`tp ${m.tp}`}</td>
-                <td>{`fn ${m.fn}`}</td>
-                <td>{m.unknown_positive}</td>
-                <td>{m.tp + m.fn + m.unknown_positive}</td>
-              </tr>
-              <tr>
-                <th scope="row">reference negative</th>
-                <td>{`fp ${m.fp}`}</td>
-                <td>{`tn ${m.tn}`}</td>
-                <td>{m.unknown_negative}</td>
-                <td>{m.fp + m.tn + m.unknown_negative}</td>
-              </tr>
-              <tr>
-                <th scope="row">total</th>
-                <td>{m.tp + m.fp}</td>
-                <td>{m.fn + m.tn}</td>
-                <td>{unknown}</td>
-                <td>{total}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section aria-label="Grader rates">
-        <h4>Grader rates</h4>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Rate</th>
-                <th scope="col">Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rates.map(([name, value]) => (
-                <tr key={name}>
-                  <th scope="row">{name}</th>
-                  <td>
-                    <IntervalBar value={value} label={name} />
-                  </td>
+      <div className="subgrid">
+        <section aria-label="Confusion matrix" className="subsection">
+          <h5>Confusion matrix</h5>
+          <p className="code">
+            {'judge vs deterministic check (positive = attack succeeded): ' +
+              `pairs=${total} tp=${m.tp} fp=${m.fp} fn=${m.fn} tn=${m.tn} ` +
+              `unknown=${unknown} (reference positive ${m.unknown_positive}, ` +
+              `reference negative ${m.unknown_negative})`}
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <td></td>
+                  <th scope="col" className="num">
+                    judge yes
+                  </th>
+                  <th scope="col" className="num">
+                    judge no
+                  </th>
+                  <th scope="col" className="num">
+                    judge unknown
+                  </th>
+                  <th scope="col" className="num">
+                    total
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section aria-label="Grader statuses">
-        <h4>Grader statuses</h4>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Status</th>
-                <th scope="col">Scores</th>
-              </tr>
-            </thead>
-            <tbody>
-              {STATUSES.map((status) => (
-                <tr key={status}>
-                  <th scope="row">{status}</th>
-                  <td>{calibration.statuses[status]}</td>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">reference positive</th>
+                  <td className="num">{`tp ${m.tp}`}</td>
+                  <td className="num">{`fn ${m.fn}`}</td>
+                  <td className="num">{m.unknown_positive}</td>
+                  <td className="num">{m.tp + m.fn + m.unknown_positive}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <section aria-label="Excluded from the pairs">
-        <h4>Excluded from the pairs</h4>
-        <p>{`excluded: ${excluded}`}</p>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Reason</th>
-                <th scope="col">Trials</th>
-              </tr>
-            </thead>
-            <tbody>
-              {EXCLUSION_REASONS.map((reason) => (
-                <tr key={reason}>
-                  <th scope="row">{reason}</th>
-                  <td>{calibration.excluded[reason]}</td>
+                <tr>
+                  <th scope="row">reference negative</th>
+                  <td className="num">{`fp ${m.fp}`}</td>
+                  <td className="num">{`tn ${m.tn}`}</td>
+                  <td className="num">{m.unknown_negative}</td>
+                  <td className="num">{m.fp + m.tn + m.unknown_negative}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </section>
+                <tr className="total">
+                  <th scope="row">total</th>
+                  <td className="num">{m.tp + m.fp}</td>
+                  <td className="num">{m.fn + m.tn}</td>
+                  <td className="num">{unknown}</td>
+                  <td className="num">{total}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section aria-label="Grader rates" className="subsection">
+          <h5>Grader rates</h5>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Rate</th>
+                  <th scope="col">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rates.map(([name, value]) => (
+                  <tr key={name}>
+                    <th scope="row">{name}</th>
+                    <td>
+                      <IntervalBar value={value} label={name} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section aria-label="Grader statuses" className="subsection">
+          <h5>Grader statuses</h5>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="num">
+                    Scores
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {STATUSES.map((status) => (
+                  <tr key={status}>
+                    <th scope="row">{status}</th>
+                    <td className="num">{calibration.statuses[status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section aria-label="Excluded from the pairs" className="subsection">
+          <h5>Excluded from the pairs</h5>
+          <p>{`excluded: ${excluded}`}</p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Reason</th>
+                  <th scope="col" className="num">
+                    Trials
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {EXCLUSION_REASONS.map((reason) => (
+                  <tr key={reason}>
+                    <th scope="row">{reason}</th>
+                    <td className="num">{calibration.excluded[reason]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </SectionCard>
   );
 }
 

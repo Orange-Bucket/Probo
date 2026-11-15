@@ -8,6 +8,11 @@ export interface IntervalBarProps {
   value: Proportion | Rate | null | undefined;
   /** What the value measures, for the bar's accessible name. */
   label: string;
+  /**
+   * `table` (the default) prints the counts beside the rate; `card` leaves them out, for a
+   * card that shows them as its headline figure, and draws a wider bar.
+   */
+  variant?: 'table' | 'card';
 }
 
 function percent(value: number): number {
@@ -19,11 +24,17 @@ function percent(value: number): number {
  * `x of n`, and a plain SVG bar of the interval with a tick at the estimate. An absent rate
  * is the text `absent (denominator is 0)` with no counts and no bar.
  */
-export function IntervalBar({ value, label }: IntervalBarProps) {
+export function IntervalBar({
+  value,
+  label,
+  variant = 'table',
+}: IntervalBarProps) {
   const text = renderOptional(value);
+  const rateClass =
+    variant === 'card' ? `${styles['rate']} ${styles['card']}` : styles['rate'];
   if (value === null || value === undefined) {
     return (
-      <span className={styles['rate']}>
+      <span className={rateClass}>
         <span className={styles['absent']} data-rate="">
           {text}
         </span>
@@ -34,11 +45,18 @@ export function IntervalBar({ value, label }: IntervalBarProps) {
   const upper = percent(value.interval.upper);
   const estimate = percent(value.estimate);
   return (
-    <span className={styles['rate']}>
-      <span data-rate="">{text}</span>{' '}
-      <span className={styles['counts']}>
-        {value.successes} of {value.trials}
+    <span className={rateClass}>
+      <span className={styles['text']} data-rate="">
+        {text}
       </span>
+      {variant === 'table' && (
+        <>
+          {' '}
+          <span className={styles['counts']}>
+            {value.successes} of {value.trials}
+          </span>
+        </>
+      )}
       <svg
         className={styles['bar']}
         viewBox="0 0 100 12"
@@ -47,13 +65,13 @@ export function IntervalBar({ value, label }: IntervalBarProps) {
         aria-label={`${label}: ${text}`}
         focusable="false"
       >
-        <rect className={styles['track']} x={0} y={5} width={100} height={2} />
+        <rect className={styles['track']} x={0} y={4} width={100} height={4} />
         <rect
           className={styles['interval']}
           x={lower}
-          y={2}
+          y={3}
           width={Math.max(upper - lower, 0.5)}
-          height={8}
+          height={6}
         />
         <rect
           className={styles['estimate']}

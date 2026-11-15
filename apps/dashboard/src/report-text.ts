@@ -95,14 +95,22 @@ export const EXCLUSION_REASONS: readonly (keyof Exclusions)[] = [
 ];
 
 /**
+ * Whether the run is incomplete: flagged so, a log status other than success, or trials
+ * that did not run. The incomplete run warning applies exactly then.
+ */
+export function runIncomplete(report: RunSummary): boolean {
+  return (
+    report.incomplete || report.facts.status !== 'success' || !!report.not_run
+  );
+}
+
+/**
  * The run's warnings: those stored in the report, plus the fixed warning for an incomplete
  * run or a corpus mismatch when the report's flags call for one it does not list.
  */
 export function runWarnings(report: RunSummary): string[] {
   const warnings = [...report.warnings];
-  const incomplete =
-    report.incomplete || report.facts.status !== 'success' || !!report.not_run;
-  if (incomplete && !warnings.includes(INCOMPLETE_WARNING))
+  if (runIncomplete(report) && !warnings.includes(INCOMPLETE_WARNING))
     warnings.push(INCOMPLETE_WARNING);
   if (report.facts.corpus_mismatch && !warnings.includes(CORPUS_WARNING)) {
     warnings.push(CORPUS_WARNING);

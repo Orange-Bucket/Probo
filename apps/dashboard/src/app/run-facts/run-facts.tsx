@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ReactNode } from 'react';
 import type { RunSummary, TokenUsage } from '../../generated/report';
-import type { Manifest } from '../../findings';
+import { manifestRows, type Manifest } from '../../findings';
 import { formatConfig, formatLevel, pythonMember } from '../../format';
 import { NOT_RECORDED, TERMS, orNotRecorded } from '../../report-text';
+import SectionCard from '../section-card/section-card';
 
 export interface RunFactsProps {
   report: RunSummary;
@@ -27,17 +28,6 @@ function usageRow(name: string, usage: TokenUsage): string[] {
     name,
     ...USAGE_FIELDS.map((field) => pythonMember(usage, field, 'not reported')),
   ];
-}
-
-/** The scalar top-level entries of a manifest, shown as text. */
-function manifestRows(manifest: Manifest): [string, string][] {
-  return Object.entries(manifest).flatMap(([key, value]): [string, string][] =>
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-      ? [[key, String(value)]]
-      : [],
-  );
 }
 
 /**
@@ -112,8 +102,7 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
   const published = manifest ? manifestRows(manifest) : [];
   return (
     <>
-      <section aria-label="Run">
-        <h3>Run</h3>
+      <SectionCard section="run">
         <div className="table-scroll">
           <table>
             <thead>
@@ -132,8 +121,8 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
             </tbody>
           </table>
         </div>
-        <section aria-label="Token usage">
-          <h4>Token usage</h4>
+        <section aria-label="Token usage" className="subsection">
+          <h5>Token usage</h5>
           {usage.length === 0 ? (
             <p>No token usage recorded.</p>
           ) : (
@@ -155,8 +144,12 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
                         'Reasoning',
                         'Total',
                         'Cost',
-                      ].map((name) => (
-                        <th scope="col" key={name}>
+                      ].map((name, index) => (
+                        <th
+                          scope="col"
+                          key={name}
+                          className={index > 0 ? 'num' : undefined}
+                        >
                           {name}
                         </th>
                       ))}
@@ -167,7 +160,9 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
                       <tr key={name}>
                         <th scope="row">{name}</th>
                         {cells.map((cell, index) => (
-                          <td key={index}>{cell}</td>
+                          <td key={index} className="num">
+                            {cell}
+                          </td>
                         ))}
                       </tr>
                     ))}
@@ -177,32 +172,32 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
             </>
           )}
         </section>
-      </section>
-      <section aria-label="Trials">
-        <h3>Trials</h3>
+      </SectionCard>
+      <SectionCard section="trials">
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
                 <th scope="col">Group</th>
-                <th scope="col">Trials</th>
+                <th scope="col" className="num">
+                  Trials
+                </th>
               </tr>
             </thead>
             <tbody>
               {trials.map(([group, count]) => (
                 <tr key={group}>
                   <th scope="row">{group}</th>
-                  <td>{count}</td>
+                  <td className="num">{count}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p>{TERMS}</p>
-      </section>
+      </SectionCard>
       {published.length > 0 && (
-        <section aria-label="Published finding">
-          <h3>Published finding</h3>
+        <SectionCard section="published">
           <p className="muted">From the finding&apos;s manifest.json.</p>
           <div className="table-scroll">
             <table>
@@ -222,7 +217,7 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
               </tbody>
             </table>
           </div>
-        </section>
+        </SectionCard>
       )}
     </>
   );

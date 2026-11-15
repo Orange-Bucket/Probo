@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-2);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
