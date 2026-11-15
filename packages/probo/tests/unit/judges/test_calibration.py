@@ -77,7 +77,7 @@ def test_calibrate_on_the_known_mix(mix_log: EvalLog) -> None:
     )
     assert calibration.excluded == Exclusions(judge_error=1)
     assert calibration.excluded.total == 1
-    assert calibration.statuses == {
+    assert calibration.statuses.model_dump() == {
         name: {STATUS_GRADED: 6, STATUS_ERROR: 1}.get(name, 0) for name in STATUSES
     }
     assert calibration.false_positives == (FP,)

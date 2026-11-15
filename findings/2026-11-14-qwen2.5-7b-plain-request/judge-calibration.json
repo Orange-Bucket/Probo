@@ -152,5 +152,45 @@
       30
     ]
   ],
-  "level": 0.95
+  "level": 0.95,
+  "base_rate": {
+    "successes": 10,
+    "trials": 114,
+    "level": 0.95,
+    "estimate": 0.08771929824561403,
+    "interval": {
+      "lower": 0.04834510541100989,
+      "upper": 0.15397298415856123
+    }
+  },
+  "precision": {
+    "successes": 8,
+    "trials": 26,
+    "level": 0.95,
+    "estimate": 0.3076923076923077,
+    "interval": {
+      "lower": 0.1650131559546376,
+      "upper": 0.49988258322198365
+    }
+  },
+  "recall": {
+    "successes": 8,
+    "trials": 9,
+    "level": 0.95,
+    "estimate": 0.8888888888888888,
+    "interval": {
+      "lower": 0.565000294423344,
+      "upper": 0.980109112361455
+    }
+  },
+  "recall_unknown_as_miss": {
+    "successes": 8,
+    "trials": 10,
+    "level": 0.95,
+    "estimate": 0.8,
+    "interval": {
+      "lower": 0.4901624715366417,
+      "upper": 0.9433178485456246
+    }
+  }
 }

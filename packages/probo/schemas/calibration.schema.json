@@ -58,36 +58,43 @@
       "properties": {
         "judge_error": {
           "default": 0,
+          "minimum": 0,
           "title": "Judge Error",
           "type": "integer"
         },
         "judge_incomplete": {
           "default": 0,
+          "minimum": 0,
           "title": "Judge Incomplete",
           "type": "integer"
         },
         "judge_missing": {
           "default": 0,
+          "minimum": 0,
           "title": "Judge Missing",
           "type": "integer"
         },
         "no_final_reply": {
           "default": 0,
+          "minimum": 0,
           "title": "No Final Reply",
           "type": "integer"
         },
         "reference_missing": {
           "default": 0,
+          "minimum": 0,
           "title": "Reference Missing",
           "type": "integer"
         },
         "reference_not_applicable": {
           "default": 0,
+          "minimum": 0,
           "title": "Reference Not Applicable",
           "type": "integer"
         },
         "sample_error": {
           "default": 0,
+          "minimum": 0,
           "title": "Sample Error",
           "type": "integer"
         }
@@ -103,11 +110,126 @@
       ],
       "title": "Exclusions",
       "type": "object"
+    },
+    "Interval": {
+      "additionalProperties": false,
+      "description": "A closed interval [lower, upper] with 0 <= lower <= upper <= 1.\n\nThe bounds are checked on construction, validation and ``model_copy``.",
+      "properties": {
+        "lower": {
+          "title": "Lower",
+          "type": "number"
+        },
+        "upper": {
+          "title": "Upper",
+          "type": "number"
+        }
+      },
+      "required": [
+        "lower",
+        "upper"
+      ],
+      "title": "Interval",
+      "type": "object"
+    },
+    "JudgeStatuses": {
+      "additionalProperties": false,
+      "description": "Number of grader scores in a log by `JUDGE_STATUS`; one field per status in `STATUSES`.",
+      "properties": {
+        "empty_reply": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Empty Reply",
+          "type": "integer"
+        },
+        "error": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Error",
+          "type": "integer"
+        },
+        "graded": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Graded",
+          "type": "integer"
+        },
+        "grader_incomplete": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Grader Incomplete",
+          "type": "integer"
+        },
+        "no_final_reply": {
+          "default": 0,
+          "minimum": 0,
+          "title": "No Final Reply",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "graded",
+        "empty_reply",
+        "no_final_reply",
+        "error",
+        "grader_incomplete"
+      ],
+      "title": "JudgeStatuses",
+      "type": "object"
+    },
+    "Proportion": {
+      "additionalProperties": false,
+      "description": "A binomial proportion x / n with its two-sided Wilson interval at ``level``.\n\nStores only ``successes``, ``trials`` and ``level``; ``estimate`` and ``interval`` are\ncomputed from them and included in dumps. Loading accepts those derived keys only when\nthey agree with the recomputed values (see ``FrozenModel``).",
+      "properties": {
+        "estimate": {
+          "description": "Point estimate x / n, computed from the counts.",
+          "readOnly": true,
+          "title": "Estimate",
+          "type": "number"
+        },
+        "interval": {
+          "$ref": "#/$defs/Interval",
+          "description": "``wilson_interval(successes, trials, level)``, computed from the stored fields.",
+          "readOnly": true
+        },
+        "level": {
+          "title": "Level",
+          "type": "number"
+        },
+        "successes": {
+          "title": "Successes",
+          "type": "integer"
+        },
+        "trials": {
+          "title": "Trials",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "successes",
+        "trials",
+        "level",
+        "estimate",
+        "interval"
+      ],
+      "title": "Proportion",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "description": "The grader against a deterministic reference over one log; build with `calibrate`.",
   "properties": {
+    "base_rate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Proportion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`ConfusionMatrix.base_rate` at `level`: share of pairs whose reference is positive.",
+      "readOnly": true
+    },
     "epochs": {
       "title": "Epochs",
       "type": "integer"
@@ -191,6 +313,18 @@
     "matrix": {
       "$ref": "#/$defs/ConfusionMatrix"
     },
+    "precision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Proportion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`ConfusionMatrix.precision` at `level`: tp / (tp + fp), unknowns excluded.",
+      "readOnly": true
+    },
     "prompt_sha256": {
       "title": "Prompt Sha256",
       "type": "string"
@@ -198,6 +332,30 @@
     "prompt_version": {
       "title": "Prompt Version",
       "type": "string"
+    },
+    "recall": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Proportion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`ConfusionMatrix.recall` at `level`: tp / (tp + fn), unknowns excluded.",
+      "readOnly": true
+    },
+    "recall_unknown_as_miss": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Proportion"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`ConfusionMatrix.recall_unknown_as_miss` at `level`: unknown positives as misses.",
+      "readOnly": true
     },
     "reference": {
       "title": "Reference",
@@ -208,11 +366,7 @@
       "type": "integer"
     },
     "statuses": {
-      "additionalProperties": {
-        "type": "integer"
-      },
-      "title": "Statuses",
-      "type": "object"
+      "$ref": "#/$defs/JudgeStatuses"
     },
     "unknowns": {
       "items": {
@@ -254,7 +408,11 @@
     "false_positives",
     "false_negatives",
     "unknowns",
-    "level"
+    "level",
+    "base_rate",
+    "precision",
+    "recall",
+    "recall_unknown_as_miss"
   ],
   "title": "JudgeCalibration",
   "type": "object"

@@ -5,13 +5,13 @@ import json
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any, Final, cast
+from typing import Annotated, Any, ClassVar, Final, cast
 
 # score's `scorers` parameter is typed via the optional inspect_scout package (not installed).
 from inspect_ai import score  # pyright: ignore[reportUnknownVariableType]
 from inspect_ai.log import EvalLog, write_eval_log
 from inspect_ai.model import Model
-from pydantic import Strict
+from pydantic import Field, Strict, computed_field
 
 from probo.checks.result import CheckResult, check_result
 from probo.judges.reply_only import (
@@ -32,7 +32,7 @@ from probo.judges.reply_only import (
 from probo.scenarios.helpdesk_exfil.keys import SCORER_RECORD_LEAKED
 from probo.stats.base import FrozenModel
 from probo.stats.confusion import ConfusionMatrix
-from probo.stats.rate import format_level
+from probo.stats.rate import Proportion, format_level
 
 SampleRef = tuple[str | int, int]
 """A trial: sample id and epoch."""
@@ -68,23 +68,26 @@ _EXCLUDED_STATUS: Final = {
 """Grader statuses whose trials are excluded, and the `Exclusions` field counting them."""
 
 
+_Count = Annotated[int, Field(ge=0)]
+
+
 class Exclusions(FrozenModel):
     """Trials left out of the pairs, by reason; each trial is counted under the first reason
     that applies, in field order."""
 
-    sample_error: int = 0
+    sample_error: _Count = 0
     """The sample errored (`EvalSample.error`): an eval would not have graded it."""
-    reference_missing: int = 0
+    reference_missing: _Count = 0
     """The trial has no score from the reference check."""
-    judge_missing: int = 0
+    judge_missing: _Count = 0
     """The trial has no score from the grader."""
-    reference_not_applicable: int = 0
+    reference_not_applicable: _Count = 0
     """The reference check does not apply to the trial."""
-    no_final_reply: int = 0
+    no_final_reply: _Count = 0
     """The agent's run did not end in a submission (status `no_final_reply`)."""
-    judge_error: int = 0
+    judge_error: _Count = 0
     """The grader call raised (status `error`): an infrastructure failure, not an answer."""
-    judge_incomplete: int = 0
+    judge_incomplete: _Count = 0
     """The grader output was cut off, overflowed, filtered or had an error (status
     `grader_incomplete`)."""
 
@@ -96,6 +99,21 @@ class Exclusions(FrozenModel):
     def render(self) -> str:
         """`name count` for every reason, comma separated."""
         return ", ".join(f"{name} {getattr(self, name)}" for name in type(self).model_fields)
+
+
+class JudgeStatuses(FrozenModel):
+    """Number of grader scores in a log by `JUDGE_STATUS`; one field per status in `STATUSES`."""
+
+    graded: _Count = 0
+    """The grader answered (`STATUS_GRADED`)."""
+    empty_reply: _Count = 0
+    """The agent submitted an empty reply (`STATUS_EMPTY_REPLY`)."""
+    no_final_reply: _Count = 0
+    """The agent's run did not end in a submission (`STATUS_NO_FINAL_REPLY`)."""
+    error: _Count = 0
+    """The grader call raised (`STATUS_ERROR`)."""
+    grader_incomplete: _Count = 0
+    """The grader output was unusable (`STATUS_GRADER_INCOMPLETE`)."""
 
 
 class JudgeCalibration(FrozenModel):
@@ -120,7 +138,7 @@ class JudgeCalibration(FrozenModel):
     """Number of distinct sample ids among the pairs."""
     epochs: int
     """Number of distinct epochs among the pairs."""
-    statuses: dict[str, int]
+    statuses: JudgeStatuses
     """Number of grader scores in the log by `JUDGE_STATUS`, every status listed."""
     excluded: Exclusions
     """Trials not in `matrix`, by reason."""
@@ -131,7 +149,45 @@ class JudgeCalibration(FrozenModel):
     unknowns: _Trials
     """Trials in `matrix` where the grader result is UNKNOWN, in log order."""
     level: float = 0.95
-    """Confidence level of the intervals `render` prints."""
+    """Confidence level of the rates' intervals."""
+
+    DERIVED: ClassVar[tuple[str, ...]] = (
+        "base_rate",
+        "precision",
+        "recall",
+        "recall_unknown_as_miss",
+    )
+
+    @computed_field
+    @property
+    def base_rate(self) -> Proportion | None:
+        """`ConfusionMatrix.base_rate` at `level`: share of pairs whose reference is positive."""
+        return self.matrix.base_rate(self.level)
+
+    @computed_field
+    @property
+    def precision(self) -> Proportion | None:
+        """`ConfusionMatrix.precision` at `level`: tp / (tp + fp), unknowns excluded."""
+        return self.matrix.precision(self.level)
+
+    @computed_field
+    @property
+    def recall(self) -> Proportion | None:
+        """`ConfusionMatrix.recall` at `level`: tp / (tp + fn), unknowns excluded."""
+        return self.matrix.recall(self.level)
+
+    @computed_field
+    @property
+    def recall_unknown_as_miss(self) -> Proportion | None:
+        """`ConfusionMatrix.recall_unknown_as_miss` at `level`: unknown positives as misses."""
+        return self.matrix.recall_unknown_as_miss(self.level)
+
+    def check_derived(self, name: str, value: object) -> None:
+        """Accept a supplied rate only if it equals the one computed from `matrix` and `level`."""
+        computed: Proportion | None = getattr(self, name)
+        supplied = None if value is None else Proportion.model_validate(value)
+        if supplied != computed:
+            raise ValueError(f"supplied {name} {supplied} disagrees with computed {computed}")
 
     def render(self) -> str:
         """ASCII lines: grader, prompt and settings, the trial counts, the matrix and its
@@ -141,7 +197,7 @@ class JudgeCalibration(FrozenModel):
         def refs(trials: tuple[SampleRef, ...]) -> str:
             return ", ".join(f"{sample_id}@{epoch}" for sample_id, epoch in trials) or "none"
 
-        statuses = ", ".join(f"{name} {self.statuses.get(name, 0)}" for name in STATUSES)
+        statuses = ", ".join(f"{name} {getattr(self.statuses, name)}" for name in STATUSES)
         config = (
             "none"
             if self.generate_config is None
@@ -289,7 +345,7 @@ def calibrate(
         matrix=ConfusionMatrix.from_pairs((truth, guess) for _, truth, guess in found.rows),
         sample_ids=len({sample_id for (sample_id, _), _, _ in found.rows}),
         epochs=len({epoch for (_, epoch), _, _ in found.rows}),
-        statuses={name: found.statuses[name] for name in STATUSES},
+        statuses=JudgeStatuses(**{name: found.statuses[name] for name in STATUSES}),
         excluded=Exclusions(**found.excluded),
         false_positives=trials((False,), True),
         false_negatives=trials((True,), False),

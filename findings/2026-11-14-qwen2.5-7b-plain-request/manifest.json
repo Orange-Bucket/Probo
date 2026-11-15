@@ -45,7 +45,7 @@
   "cost": "local model; no API cost",
   "files": {
     "Modelfile": "62c763105e0658f83ad830839b7d98113cc24fe51e5a18b21f678a0618ac7f7c",
-    "judge-calibration.json": "68607a4c24c2ba81bb11104fac1da7bb001669a012742d2a00f588fbc81d2cf7",
+    "judge-calibration.json": "3ab88b621ff527fca2e76896d9dc920aff319023d37465ed91c78de57681621a",
     "judge-calibration.txt": "250b8cc270b331dfe3c9c970d120dadd664c7dc0a927e2a6c0a1b5761f6898e3",
     "report.json": "323901ae900668ea26ef0940021c227346cb06f18f6b119d085ea0c9343acee2",
     "report.md": "00dcf8af1a6b20af85996e0a3eadf6440c310af1eda5a53a77f24c83992aba3d",
