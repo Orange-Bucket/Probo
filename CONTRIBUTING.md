@@ -52,6 +52,7 @@ pnpm nx run probo:typecheck    # pyright
 pnpm nx run probo:test         # pytest, without the docker tests
 pnpm nx run probo:test-docker  # pytest, only the docker tests
 pnpm nx run probo:build        # wheel and sdist into dist/packages/probo
+pnpm nx run probo:export-schema  # regenerate packages/probo/schemas/*.schema.json
 ```
 
 They need Node, pnpm (`pnpm install` once) and uv. The uv commands in the next section run the

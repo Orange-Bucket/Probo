@@ -53,6 +53,15 @@
         "cwd": "."
       },
       "cache": false
+    },
+    "export-schema": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "uv run probo schema report --output packages/probo/schemas/report.schema.json && uv run probo schema calibration --output packages/probo/schemas/calibration.schema.json",
+        "cwd": "."
+      },
+      "cache": false
     }
   }
 }

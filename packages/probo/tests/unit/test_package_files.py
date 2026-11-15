@@ -6,21 +6,10 @@ its own copies for the wheel and sdist. These tests keep the copies from driftin
 """
 
 import tomllib
-from pathlib import Path
 
 import pytest
 
-PACKAGE_DIR = Path(__file__).resolve().parents[2]
-REPOSITORY_ROOT = PACKAGE_DIR.parents[1]
-
-
-def _in_repository() -> bool:
-    """True in a checkout of the repository, False when run from an unpacked sdist."""
-    root_pyproject = REPOSITORY_ROOT / "pyproject.toml"
-    if PACKAGE_DIR.parent.name != "packages" or not root_pyproject.is_file():
-        return False
-    config = tomllib.loads(root_pyproject.read_text(encoding="utf-8"))
-    return "workspace" in config.get("tool", {}).get("uv", {})
+from .repository_support import PACKAGE_DIR, REPOSITORY_ROOT, needs_repository
 
 
 def test_package_dir_is_the_probo_project() -> None:
@@ -29,7 +18,7 @@ def test_package_dir_is_the_probo_project() -> None:
     assert config["project"]["name"] == "probo"
 
 
-@pytest.mark.skipif(not _in_repository(), reason="not in a repository checkout")
+@needs_repository
 @pytest.mark.parametrize("name", ["LICENSE", "NOTICE"])
 def test_copy_matches_repository_root(name: str) -> None:
     copy = (PACKAGE_DIR / name).read_bytes()

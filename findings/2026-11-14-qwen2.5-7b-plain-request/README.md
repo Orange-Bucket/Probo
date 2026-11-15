@@ -157,5 +157,6 @@ uv run inspect view --log-dir findings/2026-11-14-qwen2.5-7b-plain-request
 | `report.md`, `report.json` | Output of `probo report` on `run.eval` |
 | `run-judged.eval` | The same log with the judge's scores appended |
 | `judge-calibration.txt` | Output of `calibrate(...).render()` on `run-judged.eval` |
+| `judge-calibration.json` | Output of `probo calibrate --format json` on `run-judged.eval` |
 | `Modelfile` | Ollama definition of the model alias with a 16384-token context |
 | `manifest.json` | Commit, versions, model identifiers, arguments, times and file hashes |

@@ -10,6 +10,7 @@ members = ["packages/*"]
 dev = [
     "probo",
     "openai>=2",
+    "jsonschema>=4",
     "mcp>=2.3,<3",
     "pyright>=1.1",
     "pytest>=8",
