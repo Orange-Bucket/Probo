@@ -41,9 +41,16 @@ function banner(schema) {
  * form (`items` as an array, no additional items), which json-schema-to-typescript reads;
  * without this, a tuple such as [sample id, epoch] is typed [unknown, unknown].
  */
-function withDraft07Tuples(node) {
+export function withDraft07Tuples(node) {
   if (Array.isArray(node)) return node.map(withDraft07Tuples);
   if (node === null || typeof node !== 'object') return node;
+  if ('prefixItems' in node && ('items' in node || 'additionalItems' in node)) {
+    // 2020-12 "items" next to "prefixItems" means the rest of the array, not the tuple;
+    // there is no draft-07 form that this rewrite could give it, so stop.
+    throw new Error(
+      'a schema has both prefixItems and items or additionalItems',
+    );
+  }
   const copy = {};
   for (const [key, value] of Object.entries(node)) {
     if (key === 'prefixItems') {

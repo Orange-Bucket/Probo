@@ -4,7 +4,6 @@ import { FINDINGS, type Finding } from '../findings';
 import {
   EVIDENCE_SENTENCE,
   INDEPENDENCE_SENTENCE,
-  TERMS,
   runWarnings,
 } from '../report-text';
 import AttackSuccess from './attack-success/attack-success';
@@ -17,7 +16,6 @@ import FindingPicker from './finding-picker/finding-picker';
 import Items from './items/items';
 import JudgeMatrix from './judge-matrix/judge-matrix';
 import Limits from './limits/limits';
-import OutcomeCounts from './outcome-counts/outcome-counts';
 import RunFacts from './run-facts/run-facts';
 import Utility from './utility/utility';
 import styles from './app.module.css';
@@ -42,9 +40,7 @@ function FindingView({ finding }: { finding: Finding }) {
         <p>{INDEPENDENCE_SENTENCE}</p>
       </div>
       <RunFacts report={report} manifest={manifest} />
-      <p>{TERMS}</p>
       <AttackSuccess report={report} />
-      <OutcomeCounts report={report} />
       <AttemptCompletion report={report} />
       <Utility report={report} />
       <ControlBaseRates report={report} />

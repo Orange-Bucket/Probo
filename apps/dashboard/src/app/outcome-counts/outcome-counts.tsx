@@ -11,12 +11,12 @@ export interface OutcomeCountsProps {
   report: RunSummary;
 }
 
-/** Template trials by outcome, over all templates and per template. */
+/** Template trials by outcome, over all templates and per template (a subsection). */
 export function OutcomeCounts({ report }: OutcomeCountsProps) {
   const groups = attackGroups(report);
   return (
     <section aria-label="Outcome counts (template trials)">
-      <h3>Outcome counts (template trials)</h3>
+      <h4>Outcome counts (template trials)</h4>
       <div className="table-scroll">
         <table>
           <thead>

@@ -53,6 +53,9 @@ export default defineConfig(() => ({
   test: {
     name: 'dashboard',
     watch: false,
+    // The cached transform of src/findings.ts keeps its import.meta.glob matches, so a
+    // finding added after the first run would be missing from the tests.
+    fsModuleCache: false,
     globals: true,
     environment: 'jsdom',
     include: ['{src,tests}/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],

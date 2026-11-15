@@ -10,6 +10,7 @@
  */
 import type { JudgeCalibration } from './generated/calibration';
 import type { Proportion, Rate } from './generated/report';
+import { isFloat } from './json';
 
 /** Text printed instead of a rate whose denominator is 0 (`render_optional`). */
 export const ABSENT = 'absent (denominator is 0)';
@@ -226,16 +227,61 @@ export function renderOptional(
   return value === null || value === undefined ? ABSENT : renderValue(value);
 }
 
-/** Python's `str()` of a JSON value, as the Markdown report prints configuration values. */
-export function pythonStr(value: unknown): string {
-  return typeof value === 'string' ? value : pythonRepr(value);
+/**
+ * Python's `repr()` (and `str()`) of a float: the shortest digits that read back as `x`,
+ * positional when the decimal exponent is in [-4, 16) and always with a fractional part
+ * (`1.0`, `0.0001`, `-0.0`), otherwise scientific with a sign and at least two exponent
+ * digits (`1e-05`, `1e+16`, `1.5e+300`).
+ */
+export function pythonFloat(x: number): string {
+  if (Number.isNaN(x)) return 'nan';
+  if (x === Infinity) return 'inf';
+  if (x === -Infinity) return '-inf';
+  if (x === 0) return Object.is(x, -0) ? '-0.0' : '0.0';
+  // toExponential() without an argument gives the shortest round-trip digits.
+  const [mantissa, exponentText] = x.toExponential().split('e');
+  const sign = mantissa.startsWith('-') ? '-' : '';
+  const digits = mantissa.replace('-', '').replace('.', '');
+  const exponent = Number(exponentText);
+  if (exponent >= -4 && exponent < 16) {
+    if (exponent < 0) return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
+    const whole = digits.slice(0, exponent + 1).padEnd(exponent + 1, '0');
+    return `${sign}${whole}.${digits.slice(exponent + 1) || '0'}`;
+  }
+  const lead = digits.length > 1 ? `${digits[0]}.${digits.slice(1)}` : digits;
+  const power = String(Math.abs(exponent)).padStart(2, '0');
+  return `${sign}${lead}e${exponent < 0 ? '-' : '+'}${power}`;
 }
 
-function pythonRepr(value: unknown): string {
+/**
+ * Python's `str()` of a number read from JSON: a float as `pythonFloat`, an integer in
+ * plain digits. `float` says whether the JSON wrote it as a float (see `isFloat`); a
+ * number that is not integral is a float either way.
+ */
+export function pythonNumber(x: number, float: boolean): string {
+  if (float || !Number.isInteger(x)) return pythonFloat(x);
+  return Number.isSafeInteger(x) ? String(x) : BigInt(x).toString();
+}
+
+/** `str()` of `container[key]`, a number or null read from JSON; `none` for null. */
+export function pythonMember(
+  container: object,
+  key: string,
+  none: string,
+): string {
+  const value = (container as Record<string, unknown>)[key];
+  if (value === null || value === undefined) return none;
+  return typeof value === 'number'
+    ? pythonNumber(value, isFloat(container, key))
+    : String(value);
+}
+
+/** Python's `repr()` of `container[key]`, a JSON value. */
+function pythonRepr(value: unknown, float: boolean): string {
   if (value === null || value === undefined) return 'None';
   if (value === true) return 'True';
   if (value === false) return 'False';
-  if (typeof value === 'number') return String(value);
+  if (typeof value === 'number') return pythonNumber(value, float);
   if (typeof value === 'string') {
     // repr() quotes with ' unless the text contains ' and no ".
     const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
@@ -245,32 +291,51 @@ function pythonRepr(value: unknown): string {
       .join(`\\${quote}`);
     return `${quote}${escaped}${quote}`;
   }
-  if (Array.isArray(value)) return `[${value.map(pythonRepr).join(', ')}]`;
+  if (Array.isArray(value)) {
+    return `[${value.map((item, index) => pythonRepr(item, isFloat(value, index))).join(', ')}]`;
+  }
   if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    return `{${entries.map(([k, v]) => `${pythonRepr(k)}: ${pythonRepr(v)}`).join(', ')}}`;
+    const entries = Object.entries(value as Record<string, unknown>).map(
+      ([k, v]) =>
+        `${pythonRepr(k, false)}: ${pythonRepr(v, isFloat(value, k))}`,
+    );
+    return `{${entries.join(', ')}}`;
   }
   return String(value);
+}
+
+/** Python's `str()` of a JSON value; `float` as for `pythonNumber`. */
+export function pythonStr(value: unknown, float = false): string {
+  return typeof value === 'string' ? value : pythonRepr(value, float);
 }
 
 /** `key=value, ...` of a generate config, or `defaults` when it is empty (`_config`). */
 export function formatConfig(values: Record<string, unknown>): string {
   return (
     Object.entries(values)
-      .map(([key, value]) => `${key}=${pythonStr(value)}`)
+      .map(([key, value]) => `${key}=${pythonStr(value, isFloat(values, key))}`)
       .join(', ') || 'defaults'
   );
 }
 
 /** `json.dumps(value, sort_keys=True)`: sorted keys, `, ` and `: ` separators, ASCII. */
-export function pythonJson(value: unknown): string {
+export function pythonJson(value: unknown, float = false): string {
   if (value === null || value === undefined) return 'null';
-  if (Array.isArray(value)) return `[${value.map(pythonJson).join(', ')}]`;
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) return 'NaN';
+    if (!Number.isFinite(value)) return value > 0 ? 'Infinity' : '-Infinity';
+    return pythonNumber(value, float);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item, index) => pythonJson(item, isFloat(value, index))).join(', ')}]`;
+  }
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>).sort(
       ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
     );
-    return `{${entries.map(([k, v]) => `${pythonJson(k)}: ${pythonJson(v)}`).join(', ')}}`;
+    return `{${entries
+      .map(([k, v]) => `${pythonJson(k)}: ${pythonJson(v, isFloat(value, k))}`)
+      .join(', ')}}`;
   }
   return JSON.stringify(value).replace(
     /[\u0080-\uffff]/g,

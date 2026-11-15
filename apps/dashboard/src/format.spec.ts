@@ -5,17 +5,22 @@ import {
   formatConfig,
   formatEstimateAndInterval,
   formatLevel,
+  pythonFloat,
   pythonJson,
+  pythonMember,
+  pythonNumber,
   renderOptional,
   renderValue,
   trialRefs,
 } from './format';
 import type { Proportion } from './generated/report';
+import { parseJson } from './json';
 import { proportion, rate } from './testing/fixtures';
 import {
   RATE_TEXT,
   markdownSections,
   publishedText,
+  tableCells,
 } from './testing/published';
 
 describe('formatEstimateAndInterval', () => {
@@ -102,6 +107,69 @@ describe('renderValue', () => {
   });
 });
 
+describe('pythonFloat', () => {
+  // Expected values printed by Python's repr() and str() of the same float.
+  it.each([
+    [1, '1.0'],
+    [0, '0.0'],
+    [-0, '-0.0'],
+    [0.7, '0.7'],
+    [100, '100.0'],
+    [1e-5, '1e-05'],
+    [0.0001, '0.0001'],
+    [0.00012, '0.00012'],
+    [1e-7, '1e-07'],
+    [1e15, '1000000000000000.0'],
+    [9999999999999998, '9999999999999998.0'],
+    [1e16, '1e+16'],
+    [1.5e16, '1.5e+16'],
+    [123456789012345680, '1.2345678901234568e+17'],
+    [1e22, '1e+22'],
+    [0.1 + 0.2, '0.30000000000000004'],
+    [-12345.678, '-12345.678'],
+    [5e-324, '5e-324'],
+    [1.7976931348623157e308, '1.7976931348623157e+308'],
+  ])('prints %s as %s', (value, expected) => {
+    expect(pythonFloat(value)).toBe(expected);
+  });
+
+  it('prints integers as integers and floats as floats', () => {
+    expect(pythonNumber(1, false)).toBe('1');
+    expect(pythonNumber(1, true)).toBe('1.0');
+    expect(pythonNumber(0.5, false)).toBe('0.5');
+    expect(pythonNumber(2 ** 60, false)).toBe('1152921504606846976');
+  });
+});
+
+describe('numbers read from JSON', () => {
+  it('print as Python prints them in the report and the calibration text', () => {
+    const config = parseJson(
+      '{"temperature": 1.0, "top_p": 0.0, "seed": 42, "eps": 1e-05, "big": 1e16, ' +
+        '"neg": -0.0, "stop": [1.0, 2], "nested": {"x": 0.5, "y": 3}}',
+    ) as Record<string, unknown>;
+    expect(formatConfig(config)).toBe(
+      'temperature=1.0, top_p=0.0, seed=42, eps=1e-05, big=1e+16, neg=-0.0, ' +
+        "stop=[1.0, 2], nested={'x': 0.5, 'y': 3}",
+    );
+    expect(pythonJson(config)).toBe(
+      '{"big": 1e+16, "eps": 1e-05, "neg": -0.0, "nested": {"x": 0.5, "y": 3}, ' +
+        '"seed": 42, "stop": [1.0, 2], "temperature": 1.0, "top_p": 0.0}',
+    );
+    const usage = parseJson(
+      '{"total_cost": 2.0, "total_tokens": 5, "reasoning": null}',
+    );
+    expect(pythonMember(usage as object, 'total_cost', 'not reported')).toBe(
+      '2.0',
+    );
+    expect(pythonMember(usage as object, 'total_tokens', 'not reported')).toBe(
+      '5',
+    );
+    expect(pythonMember(usage as object, 'reasoning', 'not reported')).toBe(
+      'not reported',
+    );
+  });
+});
+
 describe('configuration text', () => {
   it('prints a generate config as the report does', () => {
     expect(formatConfig({})).toBe('defaults');
@@ -150,20 +218,19 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
     const markdown = publishedText(id, 'report.md');
     const text = publishedText(id, 'judge-calibration.txt');
 
-    it.runIf(markdown !== null)(
-      'prints every rate of report.json as report.md does',
-      () => {
-        const printed = markdownSections(markdown ?? '')
-          .flatMap((section) => section.tables.flat(2))
-          .filter((cell) => RATE_TEXT.test(cell) && cell !== ABSENT);
-        const rendered = proportions(finding.report).map(renderValue);
-        expect(new Set(rendered)).toEqual(new Set(printed));
-      },
-    );
+    it('prints every rate of report.json as report.md does', () => {
+      expect(markdown, `findings/${id}/report.md`).not.toBeNull();
+      const printed = tableCells(markdownSections(markdown ?? '')).filter(
+        (cell) => RATE_TEXT.test(cell) && cell !== ABSENT,
+      );
+      const rendered = proportions(finding.report).map(renderValue);
+      expect(new Set(rendered)).toEqual(new Set(printed));
+    });
 
-    it.runIf(text !== null && finding.calibration !== null)(
+    it.runIf(finding.calibration !== null)(
       'prints every rate of judge-calibration.json as judge-calibration.txt does',
       () => {
+        expect(text, `findings/${id}/judge-calibration.txt`).not.toBeNull();
         const printed = (text ?? '')
           .split('\n')
           .map((line) => line.slice(line.indexOf(': ') + 2))

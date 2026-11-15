@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen, within } from '@testing-library/react';
 import { INDEPENDENCE_NOTE } from '../../report-text';
+import type { GenerateConfig } from '../../generated/calibration';
+import { parseJson } from '../../json';
 import { calibration } from '../../testing/fixtures';
 import JudgeMatrix from './judge-matrix';
 
@@ -87,5 +89,26 @@ describe('JudgeMatrix', () => {
     });
     expect(within(excluded).getByText('excluded: 1')).toBeTruthy();
     expect(within(excluded).getAllByRole('row')).toHaveLength(8);
+  });
+
+  it('prints the grader config as json.dumps does, floats included', () => {
+    const config = parseJson(
+      '{"temperature": 0.0, "max_tokens": 1024}',
+    ) as GenerateConfig;
+    render(
+      <JudgeMatrix calibration={calibration({ generate_config: config })} />,
+    );
+    expect(
+      screen.getByText(
+        'grader generate config: {"max_tokens": 1024, "temperature": 0.0}',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('prints none for a grader without a config', () => {
+    render(
+      <JudgeMatrix calibration={calibration({ generate_config: null })} />,
+    );
+    expect(screen.getByText('grader generate config: none')).toBeTruthy();
   });
 });

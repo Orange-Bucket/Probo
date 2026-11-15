@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen, within } from '@testing-library/react';
+import type { RunFacts as Facts } from '../../generated/report';
+import { parseJson } from '../../json';
 import { report } from '../../testing/fixtures';
+import { TERMS } from '../../report-text';
 import RunFacts from './run-facts';
 
 function value(fact: string): string | null {
@@ -93,5 +96,42 @@ describe('RunFacts', () => {
     expect(within(published).getByText('<b>none</b>')).toBeTruthy();
     expect(within(published).queryByText('files')).toBeNull();
     expect(published.querySelector('b')).toBeNull();
+  });
+
+  it('prints numbers written as floats the way Python prints them', () => {
+    const base = report();
+    const facts = parseJson(
+      '{"generate_config": {"temperature": 1.0, "max_tokens": 10, "top_p": 1e-05},' +
+        ' "token_usage": {"m": {"input_tokens": 1, "output_tokens": 2,' +
+        ' "input_tokens_cache_read": null, "input_tokens_cache_write": null,' +
+        ' "reasoning_tokens": null, "total_tokens": 3, "total_cost": 0.0}}}',
+    ) as Pick<Facts, 'generate_config' | 'token_usage'>;
+    render(
+      <RunFacts report={report({ facts: { ...base.facts, ...facts } })} />,
+    );
+    expect(value('Generate config \\(eval\\)')).toBe(
+      'temperature=1.0, max_tokens=10, top_p=1e-05',
+    );
+    const row = screen.getByRole('row', { name: /^model m / });
+    expect(
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      '1',
+      'not reported',
+      'not reported',
+      '2',
+      'not reported',
+      '3',
+      '0.0',
+    ]);
+  });
+
+  it('ends the Trials section with the terms the rates use', () => {
+    render(<RunFacts report={report()} />);
+    const trials = screen.getByRole('region', { name: 'Trials' });
+    const last = Array.from(trials.querySelectorAll('p, table')).pop();
+    expect(last?.textContent).toBe(TERMS);
   });
 });

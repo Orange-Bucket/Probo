@@ -2,8 +2,8 @@
 import type { ReactNode } from 'react';
 import type { RunSummary, TokenUsage } from '../../generated/report';
 import type { Manifest } from '../../findings';
-import { formatConfig, formatLevel } from '../../format';
-import { NOT_RECORDED, orNotRecorded } from '../../report-text';
+import { formatConfig, formatLevel, pythonMember } from '../../format';
+import { NOT_RECORDED, TERMS, orNotRecorded } from '../../report-text';
 
 export interface RunFactsProps {
   report: RunSummary;
@@ -11,20 +11,21 @@ export interface RunFactsProps {
   manifest?: Manifest | null;
 }
 
-function notReported(value: number | null): string {
-  return value === null ? 'not reported' : String(value);
-}
+const USAGE_FIELDS: (keyof TokenUsage)[] = [
+  'input_tokens',
+  'input_tokens_cache_read',
+  'input_tokens_cache_write',
+  'output_tokens',
+  'reasoning_tokens',
+  'total_tokens',
+  'total_cost',
+];
 
+/** A token usage row; each value as Python's `str()` prints it, or `not reported`. */
 function usageRow(name: string, usage: TokenUsage): string[] {
   return [
     name,
-    String(usage.input_tokens),
-    notReported(usage.input_tokens_cache_read),
-    notReported(usage.input_tokens_cache_write),
-    String(usage.output_tokens),
-    notReported(usage.reasoning_tokens),
-    String(usage.total_tokens),
-    notReported(usage.total_cost),
+    ...USAGE_FIELDS.map((field) => pythonMember(usage, field, 'not reported')),
   ];
 }
 
@@ -39,7 +40,10 @@ function manifestRows(manifest: Manifest): [string, string][] {
   );
 }
 
-/** The Run, Token usage and Trials sections of the report, and the finding's manifest. */
+/**
+ * The Run, Token usage and Trials sections of the report (Trials ends with the terms the
+ * rates use), and the finding's manifest.
+ */
 export function RunFacts({ report, manifest }: RunFactsProps) {
   const facts = report.facts;
   const roles = Object.entries(facts.model_roles)
@@ -194,6 +198,7 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
             </tbody>
           </table>
         </div>
+        <p>{TERMS}</p>
       </section>
       {published.length > 0 && (
         <section aria-label="Published finding">

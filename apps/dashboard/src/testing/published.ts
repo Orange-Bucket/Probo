@@ -21,14 +21,20 @@ export function publishedText(id: string, name: string): string | null {
   return existsSync(file) ? readFileSync(file, 'utf8') : null;
 }
 
+/** A paragraph line or a table, as the report prints it. */
+export type MarkdownBlock =
+  | { kind: 'paragraph'; text: string }
+  /** Rows of raw cells (Markdown escapes kept), header row first. */
+  | { kind: 'table'; rows: string[][] };
+
 export interface MarkdownSection {
   /** Heading level: 1 for the title, 2 and 3 for sections. */
   level: number;
   heading: string;
-  /** Lines that are neither headings nor table rows. */
-  paragraphs: string[];
-  /** Each table as rows of raw cells (Markdown escapes kept), header row first. */
-  tables: string[][][];
+  /** The level-2 heading a level-3 section belongs to; null otherwise. */
+  parent: string | null;
+  /** The section's own paragraphs and tables, in order. */
+  blocks: MarkdownBlock[];
 }
 
 /** The cells of a Markdown table row, split on pipes that are not escaped. */
@@ -39,34 +45,49 @@ function cells(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
-/** `report.md` split by heading. */
+/** `report.md` split by heading, every paragraph line and table kept in order. */
 export function markdownSections(markdown: string): MarkdownSection[] {
   const sections: MarkdownSection[] = [];
-  let inTable = false;
+  let parent: string | null = null;
+  let table: string[][] | null = null;
   for (const line of markdown.split('\n')) {
     const heading = /^(#{1,6}) (.*)$/.exec(line);
     if (heading) {
+      const level = heading[1].length;
+      if (level === 2) parent = heading[2];
       sections.push({
-        level: heading[1].length,
+        level,
         heading: heading[2],
-        paragraphs: [],
-        tables: [],
+        parent: level === 3 ? parent : null,
+        blocks: [],
       });
-      inTable = false;
+      table = null;
       continue;
     }
     const section = sections[sections.length - 1];
     if (line.startsWith('|')) {
       if (/^\|(?:---\|)+$/.test(line)) continue;
-      if (!inTable) section.tables.push([]);
-      section.tables[section.tables.length - 1].push(cells(line));
-      inTable = true;
+      if (table === null) {
+        table = [];
+        section.blocks.push({ kind: 'table', rows: table });
+      }
+      table.push(cells(line));
     } else {
-      inTable = false;
-      if (line.trim() !== '') section.paragraphs.push(line);
+      table = null;
+      if (line.trim() !== '')
+        section.blocks.push({ kind: 'paragraph', text: line });
     }
   }
   return sections;
+}
+
+/** Every table cell of the sections. */
+export function tableCells(sections: MarkdownSection[]): string[] {
+  return sections.flatMap((section) =>
+    section.blocks.flatMap((block) =>
+      block.kind === 'table' ? block.rows.flat() : [],
+    ),
+  );
 }
 
 /** A printed rate or proportion, or the text of an absent one. */

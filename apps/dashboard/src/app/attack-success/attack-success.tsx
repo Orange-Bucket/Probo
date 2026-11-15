@@ -2,12 +2,16 @@
 import type { RunSummary } from '../../generated/report';
 import { attackGroups, countsExcluded, countsTotal } from '../../report-text';
 import IntervalBar from '../interval-bar/interval-bar';
+import OutcomeCounts from '../outcome-counts/outcome-counts';
 
 export interface AttackSuccessProps {
   report: RunSummary;
 }
 
-/** Attack success over all templates and per template, per attempt and per trial. */
+/**
+ * Attack success over all templates and per template, per attempt and per trial, with the
+ * outcome counts as a subsection, as in the report.
+ */
 export function AttackSuccess({ report }: AttackSuccessProps) {
   return (
     <section aria-label="Attack success">
@@ -47,6 +51,7 @@ export function AttackSuccess({ report }: AttackSuccessProps) {
           </tbody>
         </table>
       </div>
+      <OutcomeCounts report={report} />
     </section>
   );
 }
