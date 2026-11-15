@@ -104,6 +104,11 @@ export function runIncomplete(report: RunSummary): boolean {
   );
 }
 
+/** The run's status as the dashboard shows it: `incomplete` exactly when `runIncomplete`. */
+export function runStatus(report: RunSummary): 'complete' | 'incomplete' {
+  return runIncomplete(report) ? 'incomplete' : 'complete';
+}
+
 /**
  * The run's warnings: those stored in the report, plus the fixed warning for an incomplete
  * run or a corpus mismatch when the report's flags call for one it does not list.
@@ -147,4 +152,12 @@ export function orNotRecorded(
   return value === null || value === undefined || value === ''
     ? NOT_RECORDED
     : String(value);
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}/;
+
+/** The run's start date as recorded (`YYYY-MM-DD`), or `not recorded`. */
+export function runDate(startedAt: string | null): string {
+  const match = startedAt === null ? null : DATE.exec(startedAt);
+  return match === null ? orNotRecorded(startedAt) : match[0];
 }

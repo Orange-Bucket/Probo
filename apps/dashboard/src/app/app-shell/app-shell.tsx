@@ -34,9 +34,11 @@ function focusables(container: HTMLElement): HTMLElement[] {
 export interface AppShellProps {
   /** Every finding, newest first. */
   findings: Finding[];
-  /** The finding shown, if any. */
+  /** The finding shown, or undefined on Home. */
   selected: Finding | undefined;
   onSelect: (id: string) => void;
+  /** Shows Home. */
+  onHome: () => void;
   /** The content of the main landmark. */
   children: ReactNode;
 }
@@ -44,12 +46,13 @@ export interface AppShellProps {
 /**
  * The application frame: a skip link, the sidebar (a drawer on narrow screens, opened by
  * the top bar's menu button and closed by Escape, the backdrop or a choice), the top bar
- * and the main landmark.
+ * and the main landmark. Sidebar and top bar are one frame around the main panel.
  */
 export function AppShell({
   findings,
   selected,
   onSelect,
+  onHome,
   children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,8 +88,9 @@ export function AppShell({
     if (!menuOpen) return undefined;
     const sidebar = document.getElementById(SIDEBAR_ID);
     if (sidebar !== null) {
+      // The page shown: the selected finding, or Home.
       const current = sidebar.querySelector<HTMLElement>(
-        '[aria-current="true"]',
+        '[aria-current="true"], [aria-current="page"]',
       );
       (current ?? focusables(sidebar)[0])?.focus();
     }
@@ -144,8 +148,9 @@ export function AppShell({
     else go();
   };
 
-  const select = (id: string) => {
-    onSelect(id);
+  /** Shows another page; a choice in the open drawer closes it and focuses the h1. */
+  const show = (go: () => void) => {
+    go();
     if (menuOpen)
       closeMenu(() => document.querySelector<HTMLElement>('h1')?.focus());
   };
@@ -171,7 +176,8 @@ export function AppShell({
         modal={menuOpen}
         findings={findings}
         selectedId={selected?.id}
-        onSelect={select}
+        onSelect={(id) => show(() => onSelect(id))}
+        onHome={() => show(onHome)}
         groups={groups}
         activeSection={active}
         onNavigate={navigate}

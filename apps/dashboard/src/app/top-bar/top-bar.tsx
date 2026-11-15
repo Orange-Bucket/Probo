@@ -1,25 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Ref } from 'react';
 import type { Finding } from '../../findings';
-import { orNotRecorded, runIncomplete } from '../../report-text';
+import { runDate, runStatus } from '../../report-text';
 import Icon from '../icon/icon';
 import StatusChip from '../status-chip/status-chip';
 import ThemeToggle from '../theme-toggle/theme-toggle';
 import styles from './top-bar.module.css';
 
-/** The page title when no finding is shown. */
-export const EMPTY_TITLE = 'Probo findings';
-
-const DATE = /^\d{4}-\d{2}-\d{2}/;
-
-/** The run's start date as recorded (`YYYY-MM-DD`), or `not recorded`. */
-export function runDate(startedAt: string | null): string {
-  const match = startedAt === null ? null : DATE.exec(startedAt);
-  return match === null ? orNotRecorded(startedAt) : match[0];
-}
+/** The page title on Home, where no finding is shown. */
+export const HOME_TITLE = 'Home';
 
 export interface TopBarProps {
-  /** The finding shown, if any. */
+  /** The finding shown, or undefined on Home. */
   finding: Finding | undefined;
   /** The id of the navigation the menu button opens. */
   menuId: string;
@@ -30,7 +22,10 @@ export interface TopBarProps {
   barRef?: Ref<HTMLElement>;
 }
 
-/** The slim bar above the content: menu button, the page's h1, run status and theme. */
+/**
+ * The slim bar above the content, the top of the frame: menu button, the page's h1 (the
+ * finding id, or Home), the finding's run status, model and date, and the theme toggle.
+ */
 export function TopBar({
   finding,
   menuId,
@@ -55,12 +50,10 @@ export function TopBar({
       <div className={styles['heading']}>
         <div className={styles['titleRow']}>
           <h1 className={styles['title']} tabIndex={-1}>
-            {finding === undefined ? EMPTY_TITLE : finding.id}
+            {finding === undefined ? HOME_TITLE : finding.id}
           </h1>
           {finding !== undefined && (
-            <StatusChip
-              value={runIncomplete(finding.report) ? 'incomplete' : 'complete'}
-            />
+            <StatusChip value={runStatus(finding.report)} />
           )}
         </div>
         {finding !== undefined && (

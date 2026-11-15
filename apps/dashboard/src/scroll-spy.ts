@@ -72,6 +72,11 @@ export function useActiveSection(
   });
   const lockedUntil = useRef(0);
 
+  // A page without sections forgets the last one, so a later return starts at the first.
+  useEffect(() => {
+    if (key.endsWith('\n')) setState({ key, id: null });
+  }, [key]);
+
   useEffect(() => {
     if (typeof IntersectionObserver === 'undefined') return undefined;
     const order = key

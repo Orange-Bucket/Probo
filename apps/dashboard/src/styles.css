@@ -21,6 +21,12 @@
   color-scheme: light dark;
   --canvas: light-dark(#f4f3f0, #0d0d0c);
   --surface: light-dark(#ffffff, #161614);
+  /*
+   * The frame: sidebar and top bar as one L around the content panel (the canvas), a
+   * shade apart from both the canvas and the cards. Contrast on it, light / dark:
+   * fg 13.9 / 14.2; fg-2 6.1 / 7.7; muted 4.6 / 5.5; focus ring 4.1 / 7.4.
+   */
+  --frame: light-dark(#e9e7e1, #1e1d1b);
   --inset: light-dark(#f9f8f6, #1c1c1a);
   --hover: light-dark(#f4f3f0, #1f1f1d);
   --chip-bg: light-dark(#f4f3f0, #1f1f1d);
@@ -31,7 +37,6 @@
   --muted: light-dark(#6b655e, #99948b);
   --track: light-dark(#8a857d, #6e6a63);
   --tick: light-dark(#1c1b19, #edece8);
-  --accent-brand: #f97316;
   --accent-bar: light-dark(#ea580c, #d9480f);
   --accent-text: light-dark(#c2410c, #fb923c);
   --accent-ink: light-dark(#9a3412, #fdba74);
