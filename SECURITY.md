@@ -21,7 +21,8 @@ channel. If you are unsure whether something is a security issue, report it priv
 
 Please include:
 
-- the Probo commit or version, Python version, operating system, and Docker version if relevant;
+- the Probo commit or version, Python version, operating system, and Docker version if relevant
+  (for the dashboard: the Node.js version and the browser);
 - what an attacker can do and under what conditions (for example, what range content or
   configuration they need to control);
 - steps to reproduce, ideally a minimal scenario, fixture or command;

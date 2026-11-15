@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A findings dashboard under `apps/dashboard`: a static, read-only React page, scaffolded with
-  the Nx React generators, that bundles every finding's `report.json`, `judge-calibration.json`
+- A findings dashboard under `apps/dashboard`: a static, read-only React page that bundles every
+  finding's `report.json`, `judge-calibration.json`
   and `manifest.json` at build time and shows them section by section as `report.md` and
   `judge-calibration.txt` print them. Its types are generated from the committed JSON Schemas.
-- The repository is an Nx workspace managed with pnpm, with the projects `probo` and `dashboard`.
+- The repository is an Nx workspace managed with pnpm; `probo` and `dashboard` are Nx projects.
 - `probo calibrate JUDGED_LOG [--format text|json] [--output FILE]`: the reply-only judge's
   calibration against `record_leaked`, from a log that already carries the judge's scores,
   without a model call. The text format is `calibrate(log).render()`.
@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `JudgeCalibration` (the result of `probo.judges.calibrate`): `statuses` is now a
+  `JudgeStatuses` model with one count per status instead of a `dict[str, int]`; exclusion and
+  status counts must be non-negative; and `base_rate`, `precision`, `recall` and
+  `recall_unknown_as_miss` are computed fields, so they appear in its JSON.
 - The Python package moved from the repository root to `packages/probo/` and is registered as
   the Nx project `probo` with `lint`, `typecheck`, `test`, `test-docker` and `build` targets. The
   root `pyproject.toml` is now a uv workspace that holds the development tools and the Ruff,

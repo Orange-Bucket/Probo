@@ -47,9 +47,9 @@ workspace:
 - `nx.json`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json` and the
   root ESLint, Prettier and Vitest configuration belong to the Nx and pnpm workspace.
 
-Nx projects, targets and components are created with Nx generators (`pnpm nx g ...`), not written
-by hand, and a pull request that runs one lists the exact commands and every edit made to the
-generated files afterwards. Upgrade Nx and its plugins with `pnpm nx migrate`, which also applies
+Create new Nx projects, targets and components with Nx generators (`pnpm nx g ...`) rather than
+by hand, and in the pull request list the exact commands and every edit made to the generated
+files afterwards. Upgrade Nx and its plugins with `pnpm nx migrate`, which also applies
 their code migrations.
 
 The `probo` Nx project has these targets, which run from the repository root:
@@ -72,7 +72,8 @@ package, without the workspace's development group, and removes the tools from `
 
 ## Checks that must pass
 
-Every pull request must pass these locally and in CI:
+Every pull request must pass these locally and in CI, and the dashboard checks under
+[Dashboard](#dashboard) as well:
 
 ```bash
 uv run ruff check .          # lint
@@ -90,14 +91,14 @@ Run `uv run ruff format .` to apply formatting. Pyright runs in strict mode over
 ## Dashboard
 
 The React application under `apps/dashboard` is an [Nx](https://nx.dev/) project in a
-[pnpm](https://pnpm.io/) workspace. You need Node.js 24 and pnpm (the version is pinned by
-`packageManager` in `package.json`).
+[pnpm](https://pnpm.io/) workspace. You need Node.js (CI uses version 24) and pnpm (the version
+is pinned by `packageManager` in `package.json`).
 
 ```bash
 pnpm install                                                # install the workspace dependencies
 pnpm nx serve dashboard                                     # development server on http://localhost:4200
 pnpm nx run-many -t lint typecheck test build -p dashboard  # checks that must pass
-pnpm nx format:check                                        # Prettier, for the JavaScript side
+pnpm nx format:check                                        # Prettier, for the JavaScript side (not run in CI)
 pnpm nx run dashboard:generate-types                        # after a JSON Schema changed
 ```
 
@@ -114,7 +115,7 @@ Rules for dashboard code:
   `report.md` and `judge-calibration.txt`.
 - Text from findings is untrusted. Render it as text only: no `dangerouslySetInnerHTML`, no
   Markdown or HTML rendering, no links or other URLs built from data. ESLint enforces the first.
-- No request at run time, and no new dependency without discussing it in an issue first.
+- No data fetched at run time, and no new dependency without discussing it in an issue first.
 
 ## Tests
 

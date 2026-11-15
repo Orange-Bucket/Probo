@@ -7,7 +7,9 @@ counts an attack as successful only when a deterministic check observes its side
 judge can be run on the same trials and scored against those checks.
 
 Status: version 0.1.0, the first thin slice. It has one scenario (`helpdesk-exfil`) and one
-injection template, its checks, a run report and a reply-only judge with its calibration.
+injection template, its checks, a run report and a reply-only judge with its calibration. The
+`main` branch also has, not yet released, the `probo calibrate` and `probo schema` commands and a
+findings dashboard.
 
 ## Method
 
@@ -55,8 +57,8 @@ Installing the package registers the Inspect task `probo/helpdesk_exfil` and the
 
 The repository is an [Nx](https://nx.dev/) workspace: the Python package is in `packages/probo/`,
 the findings dashboard in `apps/dashboard/`, and published runs in `findings/`. Everything in this
-quick start except the dashboard needs only uv, and every `uv` command runs from the repository
-root.
+quick start except the dashboard and the Nx targets needs only uv, and every `uv` command runs
+from the repository root.
 
 ### Run against Inspect's mock model
 
@@ -179,23 +181,29 @@ file. It is pydantic's serialization-mode schema, so it lists the computed field
 `interval`, `per_attempt`, `per_trial`) that the JSON contains, and every field the JSON always
 contains is required. The schemas are committed as `packages/probo/schemas/report.schema.json`
 and `packages/probo/schemas/calibration.schema.json`. After changing a model, regenerate them
-with `pnpm nx run probo:export-schema`; a test fails while they differ.
+with `pnpm nx run probo:export-schema`, or without Nx by running `uv run probo schema report
+--output packages/probo/schemas/report.schema.json` and the same for `calibration`; a test fails
+while they differ.
 
 ### Browse the findings in the dashboard
 
-The dashboard is a static, read-only page that shows every finding under `findings/` the way its
-report and calibration print it: the same sections, sentences and numbers. It needs Node.js 24 and
-[pnpm](https://pnpm.io/).
+The dashboard is a static, read-only page that shows every finding under `findings/` that has a
+`report.json`, the way its report and calibration print it: the same sections, sentences and
+numbers, plus a table of the scalar fields of its `manifest.json`. It needs Node.js (CI uses
+version 24) and [pnpm](https://pnpm.io/).
 
 ```bash
 pnpm install
 pnpm nx serve dashboard     # development server on http://localhost:4200
 pnpm nx build dashboard     # static files in dist/apps/dashboard
+pnpm nx preview dashboard   # serve that build on http://localhost:4300
 ```
 
 The findings are bundled when the dashboard is built: each finding's `report.json`,
-`judge-calibration.json` (when it has one) and `manifest.json`. The page has no backend and makes
-no request at run time, so it shows a new finding only after a rebuild. It does not read `.eval`
+`judge-calibration.json` (when it has one) and `manifest.json`. The page has no backend and
+fetches no data at run time, so it shows a new finding only after a rebuild. The built files
+load their assets from `/`, so serve them from the root of a web server; opening `index.html`
+from disk shows a blank page. It does not read `.eval`
 logs and shows no transcripts; use `inspect view` for those.
 
 ## How a trial is judged
