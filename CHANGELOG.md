@@ -9,8 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- A React application under `apps/dashboard`, scaffolded with the Nx React generator (placeholder
-  page only).
+- A findings dashboard under `apps/dashboard`: a static, read-only React page, scaffolded with
+  the Nx React generators, that bundles every finding's `report.json`, `judge-calibration.json`
+  and `manifest.json` at build time and shows them section by section as `report.md` and
+  `judge-calibration.txt` print them. Its types are generated from the committed JSON Schemas.
+- The repository is an Nx workspace managed with pnpm, with the projects `probo` and `dashboard`.
 - `probo calibrate JUDGED_LOG [--format text|json] [--output FILE]`: the reply-only judge's
   calibration against `record_leaked`, from a log that already carries the judge's scores,
   without a model call. The text format is `calibrate(log).render()`.

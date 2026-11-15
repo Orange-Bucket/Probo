@@ -53,6 +53,11 @@ This creates `.venv` and installs the locked runtime and development dependencie
 
 Installing the package registers the Inspect task `probo/helpdesk_exfil` and the scorers it uses.
 
+The repository is an [Nx](https://nx.dev/) workspace: the Python package is in `packages/probo/`,
+the findings dashboard in `apps/dashboard/`, and published runs in `findings/`. Everything in this
+quick start except the dashboard needs only uv, and every `uv` command runs from the repository
+root.
+
 ### Run against Inspect's mock model
 
 ```bash
@@ -175,6 +180,23 @@ file. It is pydantic's serialization-mode schema, so it lists the computed field
 contains is required. The schemas are committed as `packages/probo/schemas/report.schema.json`
 and `packages/probo/schemas/calibration.schema.json`. After changing a model, regenerate them
 with `pnpm nx run probo:export-schema`; a test fails while they differ.
+
+### Browse the findings in the dashboard
+
+The dashboard is a static, read-only page that shows every finding under `findings/` the way its
+report and calibration print it: the same sections, sentences and numbers. It needs Node.js 24 and
+[pnpm](https://pnpm.io/).
+
+```bash
+pnpm install
+pnpm nx serve dashboard     # development server on http://localhost:4200
+pnpm nx build dashboard     # static files in dist/apps/dashboard
+```
+
+The findings are bundled when the dashboard is built: each finding's `report.json`,
+`judge-calibration.json` (when it has one) and `manifest.json`. The page has no backend and makes
+no request at run time, so it shows a new finding only after a rebuild. It does not read `.eval`
+logs and shows no transcripts; use `inspect view` for those.
 
 ## How a trial is judged
 

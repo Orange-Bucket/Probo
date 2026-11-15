@@ -42,7 +42,15 @@ workspace:
   (a test fails when they differ from the root files). `project.json` registers it with Nx.
 - The root `pyproject.toml` defines the uv workspace, the development tools and the Ruff, Pyright
   and pytest settings for the whole repository. `uv.lock` is at the root.
+- `apps/dashboard/` is the findings dashboard, a React application built with Vite.
 - `findings/` holds the published findings.
+- `nx.json`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json` and the
+  root ESLint, Prettier and Vitest configuration belong to the Nx and pnpm workspace.
+
+Nx projects, targets and components are created with Nx generators (`pnpm nx g ...`), not written
+by hand, and a pull request that runs one lists the exact commands and every edit made to the
+generated files afterwards. Upgrade Nx and its plugins with `pnpm nx migrate`, which also applies
+their code migrations.
 
 The `probo` Nx project has these targets, which run from the repository root:
 
@@ -89,7 +97,24 @@ The React application under `apps/dashboard` is an [Nx](https://nx.dev/) project
 pnpm install                                                # install the workspace dependencies
 pnpm nx serve dashboard                                     # development server on http://localhost:4200
 pnpm nx run-many -t lint typecheck test build -p dashboard  # checks that must pass
+pnpm nx format:check                                        # Prettier, for the JavaScript side
+pnpm nx run dashboard:generate-types                        # after a JSON Schema changed
 ```
+
+The dashboard bundles `findings/*/report.json`, `judge-calibration.json` and `manifest.json` at
+build time. Its TypeScript types in `apps/dashboard/src/generated/` are generated from the JSON
+Schemas in `packages/probo/schemas/`; after changing a Python output model, run
+`pnpm nx run probo:export-schema` and then `pnpm nx run dashboard:generate-types`, and commit both
+results. Tests fail while either is out of date.
+
+Rules for dashboard code:
+
+- Show numbers exactly as the reports print them. Formatting lives in `src/format.ts`, which
+  mirrors the Python rules; a test renders every published finding and compares the page with its
+  `report.md` and `judge-calibration.txt`.
+- Text from findings is untrusted. Render it as text only: no `dangerouslySetInnerHTML`, no
+  Markdown or HTML rendering, no links or other URLs built from data. ESLint enforces the first.
+- No request at run time, and no new dependency without discussing it in an issue first.
 
 ## Tests
 
