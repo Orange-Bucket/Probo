@@ -201,7 +201,7 @@
   height: 0.875rem;
 }
 
-@media (max-width: 63.99rem) {
+@media (width < 64rem) {
   .sidebar {
     width: min(var(--sidebar-width), calc(100vw - 3rem));
     box-shadow: var(--shadow-drawer);

@@ -52,7 +52,7 @@ export function IntervalBar({
       {variant === 'table' && (
         <>
           {' '}
-          <span className={styles['counts']}>
+          <span className={styles['counts']} data-counts="">
             {value.successes} of {value.trials}
           </span>
         </>
@@ -65,7 +65,7 @@ export function IntervalBar({
         aria-label={`${label}: ${text}`}
         focusable="false"
       >
-        <rect className={styles['track']} x={0} y={4} width={100} height={4} />
+        <rect className={styles['track']} x={0} y={5} width={100} height={2} />
         <rect
           className={styles['interval']}
           x={lower}

@@ -42,7 +42,7 @@
   display: none;
 }
 
-@media (max-width: 63.99rem) {
+@media (width < 64rem) {
   .content {
     margin-left: 0;
   }

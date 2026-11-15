@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { render, screen } from '@testing-library/react';
 import { EVIDENCE_SENTENCE, INDEPENDENCE_SENTENCE } from '../../report-text';
-import { GROUPS, SECTIONS } from '../../sections';
+import { GROUPS, SECTIONS, findingGroups } from '../../sections';
 import { finding } from '../../testing/fixtures';
 import FindingView from './finding-view';
 
@@ -46,4 +46,31 @@ describe('FindingView', () => {
       SECTIONS.published.id,
     );
   });
+
+  it.each([
+    ['with a manifest and a calibration', { manifest: { finding: 'x' } }],
+    ['without either', { calibration: null }],
+  ] as const)(
+    'places each section under the group GROUPS gives it, in order (%s)',
+    (_, values) => {
+      const shown = finding('2026-01-01-a', values);
+      const { container } = render(<FindingView finding={shown} />);
+      const headings = Array.from(container.querySelectorAll('h3')).filter(
+        (heading) => heading.closest('section') === null,
+      );
+      expect(
+        headings.map((heading) => [
+          heading.textContent,
+          Array.from(heading.parentElement?.querySelectorAll('section') ?? [])
+            .filter((section) => section.querySelector(':scope > h4') !== null)
+            .map((section) => section.id),
+        ]),
+      ).toEqual(
+        findingGroups(shown).map((group) => [
+          group.title,
+          group.sections.map((key) => SECTIONS[key].id),
+        ]),
+      );
+    },
+  );
 });

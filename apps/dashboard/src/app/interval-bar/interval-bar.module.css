@@ -40,6 +40,8 @@
   margin-top: 0.75rem;
 }
 
+/* A thin line: the interval is told from it by thickness, since both meet 3:1 against the
+   card but not against each other. */
 .track {
   fill: var(--track);
 }
@@ -49,5 +51,5 @@
 }
 
 .estimate {
-  fill: var(--fg);
+  fill: var(--tick);
 }

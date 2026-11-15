@@ -7,7 +7,9 @@
  *
  * The page adds an overview of headline cards and a navigation; neither replaces a section.
  * The overview may only repeat rates the report or the calibration text prints, and the
- * only links are the navigation's links to the page's own fixed section ids.
+ * only links are the navigation's links to the page's own fixed section ids. Beyond the
+ * report's blocks, a section's text is exactly its heading and its fixed caption, and the
+ * page's own text outside the sections exactly the report's plus the fixed group headings.
  */
 import { render, screen, within } from '@testing-library/react';
 import { FINDINGS } from '../findings';
@@ -18,7 +20,7 @@ import {
   markdownSections,
   publishedText,
 } from '../testing/published';
-import { SECTIONS } from '../sections';
+import { SECTIONS, findingGroups } from '../sections';
 import { MAIN_ID } from './app-shell/app-shell';
 import App from './app';
 
@@ -113,6 +115,56 @@ function pageOutline(article: Element): OutlineEntry[] {
 
 function rateCount(element: Element): number {
   return element.querySelectorAll('[data-rate]').length;
+}
+
+/**
+ * The words of the text that belongs to `region` itself, in document order: every text
+ * node whose nearest section or article is `region` (so not a subsection's, which is
+ * compared on its own), except the `x of n` counts the interval bars print beside a rate
+ * (checked apart, by `checkCounts`). Each text node is split on whitespace separately, so
+ * text of adjacent elements never runs together; words are escaped as report.md escapes
+ * cell text.
+ */
+function ownWords(region: Element): string[] {
+  const walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT);
+  const words: string[] = [];
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const parent = node.parentElement;
+    if (parent === null || parent.closest('section, article') !== region)
+      continue;
+    if (parent.closest('[data-counts]') !== null) continue;
+    for (const word of (node.textContent ?? '').split(/\s+/)) {
+      if (word !== '') words.push(markdownCell(word));
+    }
+  }
+  return words;
+}
+
+/** The words of a report block: a paragraph (bold markers dropped) or every table cell. */
+function blockWords(block: MarkdownBlock): string[] {
+  const text =
+    block.kind === 'paragraph'
+      ? block.text.replace(/^\*\*(.*)\*\*$/, '$1')
+      : block.rows.flat().join(' ');
+  return text.split(/\s+/).filter(Boolean);
+}
+
+function words(text: string): string[] {
+  return text.split(/\s+/).filter(Boolean);
+}
+
+/** Every `x of n` beside a rate: n is the rate's own n, and x is at most n. */
+function checkCounts(container: Element) {
+  for (const counts of Array.from(
+    container.querySelectorAll('[data-counts]'),
+  )) {
+    const rate = counts.parentElement?.querySelector('[data-rate]');
+    const [, n] = /\(n=(\d+)/.exec(rate?.textContent ?? '') ?? [];
+    const match = /^(\d+) of (\d+)$/.exec(counts.textContent ?? '');
+    expect(match, counts.textContent ?? '').not.toBeNull();
+    expect(match?.[2]).toBe(n);
+    expect(Number(match?.[1])).toBeLessThanOrEqual(Number(n));
+  }
 }
 
 /** The ids a link on the page may point at: the main landmark and the fixed sections. */
@@ -221,6 +273,57 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
         expect(LINK_TARGETS.has(href.slice(1)), href).toBe(true);
         expect(document.getElementById(href.slice(1)), href).not.toBeNull();
       }
+    });
+
+    it('shows nothing in a section but its heading, its caption and the report text', () => {
+      const { container } = render(<App findings={[finding]} />);
+      const article = screen.getByRole('article');
+      for (const section of sections) {
+        if (section.level === 1) {
+          // The title, the report's paragraphs (warnings and the two fixed sentences) and
+          // the fixed group headings: nothing else outside the sections.
+          expect(ownWords(article)).toEqual([
+            ...words(section.heading),
+            ...section.blocks.flatMap(blockWords),
+            ...findingGroups(finding).flatMap((group) => words(group.title)),
+          ]);
+          continue;
+        }
+        const info = Object.values(SECTIONS).find(
+          (candidate) => candidate.title === section.heading,
+        );
+        // A ## section is a section card with a fixed caption; a ### one has none.
+        if (section.level === 2) expect(info, section.heading).toBeDefined();
+        const region = screen.getByRole('region', { name: section.heading });
+        expect(ownWords(region), section.heading).toEqual([
+          ...words(section.heading),
+          ...(section.level === 2 ? words(info?.caption ?? '') : []),
+          ...section.blocks.flatMap(blockWords),
+        ]);
+      }
+      checkCounts(container);
+    });
+
+    it('puts under each group heading exactly the sections GROUPS lists, in order', () => {
+      render(<App findings={[finding]} />);
+      const article = screen.getByRole('article');
+      const headings = Array.from(article.querySelectorAll('h3')).filter(
+        (heading) => heading.closest('section') === null,
+      );
+      const groups = findingGroups(finding);
+      expect(headings.map((heading) => heading.textContent)).toEqual(
+        groups.map((group) => group.title),
+      );
+      headings.forEach((heading, index) => {
+        const shown = Array.from(
+          heading.parentElement?.querySelectorAll('section') ?? [],
+        )
+          .filter((section) => section.querySelector(':scope > h4') !== null)
+          .map((section) => section.id);
+        expect(shown, groups[index].title).toEqual(
+          groups[index].sections.map((key) => SECTIONS[key].id),
+        );
+      });
     });
 
     it.runIf(finding.calibration !== null)(

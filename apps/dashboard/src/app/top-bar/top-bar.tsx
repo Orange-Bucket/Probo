@@ -26,6 +26,8 @@ export interface TopBarProps {
   menuOpen: boolean;
   onMenuToggle: () => void;
   menuButtonRef?: Ref<HTMLButtonElement>;
+  /** The header element, so the shell can measure the bar's height. */
+  barRef?: Ref<HTMLElement>;
 }
 
 /** The slim bar above the content: menu button, the page's h1, run status and theme. */
@@ -35,9 +37,10 @@ export function TopBar({
   menuOpen,
   onMenuToggle,
   menuButtonRef,
+  barRef,
 }: TopBarProps) {
   return (
-    <header className={styles['bar']}>
+    <header ref={barRef} className={styles['bar']}>
       <button
         ref={menuButtonRef}
         type="button"

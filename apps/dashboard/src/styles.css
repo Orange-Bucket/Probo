@@ -3,47 +3,59 @@
  * Page-wide styles: the design tokens of both themes, type, focus, tables and the shared
  * blocks the section components use. Components keep their own layout in CSS modules.
  *
- * One accent, orange, on warm neutrals. Text contrast (WCAG 2.x) of the pairs in use:
- *   light: fg #1c1b19 on card 17.2; fg-2 #57534e 7.6; muted #6b655e 5.8 (5.2 on canvas);
- *          accent-text #c2410c 5.2 (4.7 on canvas); accent-ink #9a3412 on accent-soft 6.8;
- *          bars #ea580c on card 3.6 (non-text, 3:1).
- *   dark:  fg #edece8 on card 15.3; fg-2 #b4b0a8 8.4; muted #99948b 6.0;
- *          accent-text #fb923c 8.0; accent-ink #fdba74 on accent-soft 9.9; bars #f97316 6.5.
- * The focus ring uses accent-text: at least 4.7:1 against every surface it sits on.
+ * Themes: every colour token is defined once, as light-dark(<light>, <dark>). The root's
+ * color-scheme picks the side: `light dark` follows the system preference, and the theme
+ * toggle's data-theme attribute pins `light` or `dark`. Shadows use colour tokens too, so
+ * no second block of dark values exists to drift from the first.
+ *
+ * One accent, orange, on warm neutrals. Contrast (WCAG 2.x) of the pairs in use,
+ * light / dark, on cards unless noted:
+ *   text:  fg 17.2 / 15.3; fg-2 7.6 / 8.4; muted 5.8 (5.2 on canvas) / 6.0;
+ *          accent-text 5.2 (4.7 on canvas) / 8.0; accent-ink on accent-soft 6.8 / 9.9.
+ *   non-text (3:1): interval bar 3.6 (3.4 on inset rows) / 4.2 (4.0); bar track 3.7 (3.5)
+ *          / 3.4 (3.2); estimate tick 17.2, and 4.8 / 3.6 over the bar. The focus ring
+ *          uses accent-text: at least 4.7:1 against every surface it sits on.
  */
 
 :root {
-  color-scheme: light;
-  --canvas: #f4f3f0;
-  --surface: #ffffff;
-  --inset: #f9f8f6;
-  --hover: #f4f3f0;
-  --chip-bg: #f4f3f0;
-  --border: #eceae5;
-  --border-strong: #dddad3;
-  --fg: #1c1b19;
-  --fg-2: #57534e;
-  --muted: #6b655e;
-  --track: #e7e5e0;
+  color-scheme: light dark;
+  --canvas: light-dark(#f4f3f0, #0d0d0c);
+  --surface: light-dark(#ffffff, #161614);
+  --inset: light-dark(#f9f8f6, #1c1c1a);
+  --hover: light-dark(#f4f3f0, #1f1f1d);
+  --chip-bg: light-dark(#f4f3f0, #1f1f1d);
+  --border: light-dark(#eceae5, #262523);
+  --border-strong: light-dark(#dddad3, #353430);
+  --fg: light-dark(#1c1b19, #edece8);
+  --fg-2: light-dark(#57534e, #b4b0a8);
+  --muted: light-dark(#6b655e, #99948b);
+  --track: light-dark(#8a857d, #6e6a63);
+  --tick: light-dark(#1c1b19, #edece8);
   --accent-brand: #f97316;
-  --accent-bar: #ea580c;
-  --accent-text: #c2410c;
-  --accent-ink: #9a3412;
-  --accent-soft: #fff4eb;
-  --accent-soft-border: #fed7aa;
-  --focus: #c2410c;
-  --scrim: rgba(28, 27, 25, 0.32);
-  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --accent-bar: light-dark(#ea580c, #d9480f);
+  --accent-text: light-dark(#c2410c, #fb923c);
+  --accent-ink: light-dark(#9a3412, #fdba74);
+  --accent-soft: light-dark(#fff4eb, #2a1b10);
+  --accent-soft-border: light-dark(#fed7aa, #4a2c14);
+  --focus: light-dark(#c2410c, #fb923c);
+  --scrim: light-dark(rgba(28, 27, 25, 0.32), rgba(0, 0, 0, 0.55));
+  --shadow-faint: light-dark(rgba(28, 25, 23, 0.04), transparent);
+  --shadow-soft: light-dark(rgba(28, 25, 23, 0.12), rgba(0, 0, 0, 0.7));
+  --shadow-deep: light-dark(rgba(28, 25, 23, 0.18), rgba(0, 0, 0, 0.6));
+  --shadow-card: 0 1px 2px var(--shadow-faint);
   --shadow-raised:
-    0 6px 20px -8px rgba(28, 25, 23, 0.12), 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-drawer: 0 0 48px rgba(28, 25, 23, 0.18);
+    0 6px 20px -8px var(--shadow-soft), 0 1px 2px var(--shadow-faint);
+  --shadow-drawer: 0 0 48px var(--shadow-deep);
 
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
   --sidebar-width: 16.5rem;
   --topbar-height: 4rem;
-  /* How far below the viewport top a section lands when scrolled to (under the top bar). */
+  /*
+   * How far below the viewport top a section lands when scrolled to. The shell replaces it
+   * with the measured top bar height plus a gap (see scroll-spy.ts); this is the default.
+   */
   --scroll-offset: 5rem;
 
   --font-sans:
@@ -57,66 +69,12 @@
   line-height: 1.55;
 }
 
-/* Dark: by system preference unless light was chosen, or when dark was chosen. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-    --canvas: #0d0d0c;
-    --surface: #161614;
-    --inset: #1c1c1a;
-    --hover: #1f1f1d;
-    --chip-bg: #1f1f1d;
-    --border: #262523;
-    --border-strong: #353430;
-    --fg: #edece8;
-    --fg-2: #b4b0a8;
-    --muted: #99948b;
-    --track: #3a3936;
-    --accent-brand: #f97316;
-    --accent-bar: #f97316;
-    --accent-text: #fb923c;
-    --accent-ink: #fdba74;
-    --accent-soft: #2a1b10;
-    --accent-soft-border: #4a2c14;
-    --focus: #fb923c;
-    --scrim: rgba(0, 0, 0, 0.55);
-    --shadow-card: none;
-    --shadow-raised: 0 8px 24px -10px rgba(0, 0, 0, 0.7);
-    --shadow-drawer: 0 0 48px rgba(0, 0, 0, 0.6);
-  }
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --canvas: #0d0d0c;
-  --surface: #161614;
-  --inset: #1c1c1a;
-  --hover: #1f1f1d;
-  --chip-bg: #1f1f1d;
-  --border: #262523;
-  --border-strong: #353430;
-  --fg: #edece8;
-  --fg-2: #b4b0a8;
-  --muted: #99948b;
-  --track: #3a3936;
-  --accent-brand: #f97316;
-  --accent-bar: #f97316;
-  --accent-text: #fb923c;
-  --accent-ink: #fdba74;
-  --accent-soft: #2a1b10;
-  --accent-soft-border: #4a2c14;
-  --focus: #fb923c;
-  --scrim: rgba(0, 0, 0, 0.55);
-  --shadow-card: none;
-  --shadow-raised: 0 8px 24px -10px rgba(0, 0, 0, 0.7);
-  --shadow-drawer: 0 0 48px rgba(0, 0, 0, 0.6);
-}
-
-@media (max-width: 40rem) {
-  :root {
-    /* The top bar wraps to more lines on phones. */
-    --scroll-offset: 8.5rem;
-  }
 }
 
 * {
@@ -191,7 +149,7 @@ button:focus-visible {
   margin-top: 0;
 }
 
-@container (min-width: 64rem) {
+@container (width >= 64rem) {
   .subgrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

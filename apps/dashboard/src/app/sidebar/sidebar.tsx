@@ -10,6 +10,11 @@ export interface SidebarProps {
   id: string;
   /** Open as a drawer (narrow screens only; wide screens always show the sidebar). */
   open: boolean;
+  /**
+   * Shown as a drawer over the page: then it is a labelled modal dialog. Wide screens show
+   * it as ordinary navigation beside the content, with no dialog role.
+   */
+  modal: boolean;
   /** Every finding, newest first. */
   findings: Finding[];
   selectedId: string | undefined;
@@ -56,6 +61,7 @@ function brandMark() {
 export function Sidebar({
   id,
   open,
+  modal,
   findings,
   selectedId,
   onSelect,
@@ -101,6 +107,9 @@ export function Sidebar({
         open ? `${styles['sidebar']} ${styles['open']}` : styles['sidebar']
       }
       data-open={open}
+      role={modal ? 'dialog' : undefined}
+      aria-modal={modal ? true : undefined}
+      aria-label={modal ? 'Navigation' : undefined}
       onKeyDown={onKeyDown}
     >
       <div className={styles['brand']}>

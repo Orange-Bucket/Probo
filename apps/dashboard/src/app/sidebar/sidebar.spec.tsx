@@ -10,6 +10,7 @@ function renderSidebar(props: Partial<SidebarProps> = {}) {
     <Sidebar
       id="sidebar"
       open={false}
+      modal={false}
       findings={[finding('2026-03-01-b'), finding('2026-01-01-a')]}
       selectedId="2026-03-01-b"
       groups={[...GROUPS]}

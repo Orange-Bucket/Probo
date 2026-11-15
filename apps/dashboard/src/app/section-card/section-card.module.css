@@ -47,7 +47,7 @@
   margin-bottom: 0;
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .card {
     padding: 1rem 1rem 1.125rem;
     border-radius: var(--radius-md);

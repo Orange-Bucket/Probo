@@ -83,7 +83,7 @@
   flex: none;
 }
 
-@media (max-width: 63.99rem) {
+@media (width < 64rem) {
   .bar {
     padding: 0.625rem 1rem;
   }
@@ -93,7 +93,7 @@
   }
 }
 
-@media (max-width: 40rem) {
+@media (width < 40rem) {
   .title {
     font-size: 0.9375rem;
   }

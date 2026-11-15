@@ -37,7 +37,8 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionInfo>> = {
   overview: {
     id: 'section-overview',
     title: 'Overview',
-    caption: 'Headline rates of this finding, as the report prints them.',
+    caption:
+      'Headline rates of this finding, as its report and judge calibration print them.',
   },
   run: {
     id: 'section-run',
@@ -95,7 +96,8 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionInfo>> = {
   'excluded-trials': {
     id: 'section-excluded-trials',
     title: 'Excluded trials',
-    caption: 'Trials outside the per-attempt denominator, with their evidence.',
+    caption:
+      'Template trials outside the per-attempt denominator, and control trials with an error label.',
   },
   'judge-calibration': {
     id: 'section-judge-calibration',
@@ -111,10 +113,13 @@ export const SECTIONS: Readonly<Record<SectionKey, SectionInfo>> = {
 
 export type GroupKey = 'setup' | 'results' | 'breakdown' | 'judge';
 
+/** The sections that sit in a group: all but the overview, which is above the groups. */
+export type GroupedSectionKey = Exclude<SectionKey, 'overview'>;
+
 export interface SectionGroup {
   key: GroupKey;
   title: string;
-  sections: SectionKey[];
+  sections: GroupedSectionKey[];
 }
 
 /** The groups of a finding's page, in page order; every section keeps the report's order. */
