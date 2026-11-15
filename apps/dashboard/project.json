@@ -4,6 +4,39 @@
   "sourceRoot": "apps/dashboard/src",
   "projectType": "application",
   "tags": ["lang:ts", "type:app"],
-  "// targets": "to see all targets run: nx show project dashboard --web",
-  "targets": {}
+  "namedInputs": {
+    "findings": [
+      "{workspaceRoot}/findings/*/report.json",
+      "{workspaceRoot}/findings/*/judge-calibration.json",
+      "{workspaceRoot}/findings/*/manifest.json",
+      "{workspaceRoot}/packages/probo/schemas/*.schema.json"
+    ],
+    "publishedText": [
+      "{workspaceRoot}/findings/*/report.md",
+      "{workspaceRoot}/findings/*/judge-calibration.txt",
+      "{workspaceRoot}/packages/probo/src/probo/report/markdown.py",
+      "{workspaceRoot}/packages/probo/src/probo/report/summary.py",
+      "{workspaceRoot}/packages/probo/src/probo/judges/calibration.py"
+    ]
+  },
+  "targets": {
+    "generate-types": {
+      "executor": "nx:run-commands",
+      "outputs": [],
+      "options": {
+        "command": "node apps/dashboard/scripts/generate-types.mjs",
+        "cwd": "."
+      },
+      "cache": false
+    },
+    "build": {
+      "inputs": ["...", "findings"]
+    },
+    "typecheck": {
+      "inputs": ["...", "findings"]
+    },
+    "test": {
+      "inputs": ["...", "findings", "publishedText"]
+    }
+  }
 }
