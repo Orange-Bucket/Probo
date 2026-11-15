@@ -5,7 +5,12 @@ import { finding, report } from '../../testing/fixtures';
 import Sidebar, { type SidebarProps } from './sidebar';
 
 function renderSidebar(props: Partial<SidebarProps> = {}) {
-  const handlers = { onSelect: vi.fn(), onNavigate: vi.fn(), onClose: vi.fn() };
+  const handlers = {
+    onSelect: vi.fn(),
+    onHome: vi.fn(),
+    onNavigate: vi.fn(),
+    onClose: vi.fn(),
+  };
   render(
     <Sidebar
       id="sidebar"
@@ -23,9 +28,56 @@ function renderSidebar(props: Partial<SidebarProps> = {}) {
 }
 
 describe('Sidebar', () => {
-  it('shows the brand, the findings, the section links and the footer line', () => {
+  it('shows the name as text alone, with no logo mark', () => {
     renderSidebar();
-    expect(screen.getByText('Probo')).toBeTruthy();
+    const name = screen.getByText('Probo');
+    const brand = name.parentElement as HTMLElement;
+    // The only drawing beside the name is the close button's icon.
+    for (const svg of Array.from(brand.querySelectorAll('svg'))) {
+      expect(svg.closest('button')?.getAttribute('aria-label')).toBe(
+        'Close navigation',
+      );
+    }
+    expect(brand.querySelector('rect, circle')).toBeNull();
+  });
+
+  it('has no visible label over the section links, which keep their name', () => {
+    renderSidebar();
+    const sidebar = document.getElementById('sidebar') as HTMLElement;
+    expect(sidebar.textContent).not.toContain('On this page');
+    expect(screen.queryByText('On this page')).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Sections' })).toBeTruthy();
+  });
+
+  it('starts with Home, current only while Home is shown', () => {
+    const { onHome } = renderSidebar();
+    const navs = screen.getAllByRole('navigation');
+    expect(navs.map((nav) => nav.getAttribute('aria-label'))).toEqual([
+      'Dashboard',
+      'Findings',
+      'Sections',
+    ]);
+    const home = within(navs[0]).getByRole('button', { name: 'Home' });
+    expect(home.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    expect(home.getAttribute('aria-current')).toBeNull();
+    fireEvent.click(home);
+    expect(onHome).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks Home as the current page, and no finding, on Home', () => {
+    renderSidebar({ selectedId: undefined, groups: [] });
+    expect(
+      screen.getByRole('button', { name: 'Home' }).getAttribute('aria-current'),
+    ).toBe('page');
+    const findings = screen.getByRole('navigation', { name: 'Findings' });
+    for (const button of within(findings).getAllByRole('button')) {
+      expect(button.getAttribute('aria-current')).toBeNull();
+    }
+    expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull();
+  });
+
+  it('shows the findings, the section links and the footer line', () => {
+    renderSidebar();
     expect(screen.getByText('Static build. Read only.')).toBeTruthy();
     const findings = screen.getByRole('navigation', { name: 'Findings' });
     expect(within(findings).getAllByRole('button')).toHaveLength(2);

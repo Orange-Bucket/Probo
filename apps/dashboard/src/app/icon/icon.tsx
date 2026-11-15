@@ -4,6 +4,19 @@ import styles from './icon.module.css';
 
 /** Simple 24x24 stroke icons, drawn here; nothing is loaded from elsewhere. */
 const PATHS = {
+  home: (
+    <>
+      <path d="M3.5 10.5L12 4l8.5 6.5" />
+      <path d="M6 9v9a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9" />
+      <path d="M10 20v-5h4v5" />
+    </>
+  ),
+  arrow: (
+    <>
+      <path d="M5 12h14" />
+      <path d="M13 6l6 6-6 6" />
+    </>
+  ),
   menu: (
     <>
       <path d="M4 7h16" />

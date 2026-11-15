@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { finding, report } from '../../testing/fixtures';
-import TopBar, { EMPTY_TITLE, runDate } from './top-bar';
+import TopBar, { HOME_TITLE } from './top-bar';
 
 function renderBar(props: Partial<Parameters<typeof TopBar>[0]> = {}) {
   const onMenuToggle = vi.fn();
@@ -48,20 +48,21 @@ describe('TopBar', () => {
     expect(onMenuToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('has a plain title and no status without a finding', () => {
-    renderBar({ finding: undefined });
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
-      EMPTY_TITLE,
+  it('is titled Home on Home, with no status, model or date', () => {
+    const { banner } = renderBar({ finding: undefined });
+    expect(HOME_TITLE).toBe('Home');
+    expect(within(banner).getByRole('heading', { level: 1 }).textContent).toBe(
+      'Home',
     );
-    expect(screen.queryByText('complete')).toBeNull();
-  });
-});
-
-describe('runDate', () => {
-  it('is the recorded date of the start time, or not recorded', () => {
-    expect(runDate('2026-11-14T19:35:04+00:00')).toBe('2026-11-14');
-    expect(runDate(null)).toBe('not recorded');
-    expect(runDate('')).toBe('not recorded');
-    expect(runDate('yesterday')).toBe('yesterday');
+    expect(within(banner).queryByText('complete')).toBeNull();
+    expect(within(banner).queryByText('incomplete')).toBeNull();
+    expect(within(banner).queryByText('mockllm/model')).toBeNull();
+    expect(within(banner).queryByText('2026-01-01')).toBeNull();
+    // Only the menu button and the theme toggle remain.
+    expect(
+      within(banner)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['Navigation', 'Dark theme']);
   });
 });

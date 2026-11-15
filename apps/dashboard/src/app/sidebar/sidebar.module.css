@@ -6,8 +6,7 @@
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--frame);
 }
 
 .brand {
@@ -19,18 +18,8 @@
   padding: 0 1.25rem;
 }
 
-.mark {
-  width: 2rem;
-  height: 2rem;
-  flex: none;
-}
-
-.markTile {
-  fill: var(--accent-brand);
-}
-
 .name {
-  font-size: 1.0625rem;
+  font-size: 1.125rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -59,7 +48,7 @@
 }
 
 .nav + .nav {
-  margin-top: 1.25rem;
+  margin-top: 1rem;
 }
 
 .label {
@@ -87,6 +76,7 @@
   list-style: none;
 }
 
+.page,
 .finding,
 .link {
   position: relative;
@@ -109,17 +99,23 @@
     color 140ms ease;
 }
 
+.page,
 .link {
   align-items: center;
+}
+
+.link {
   padding-block: 0.375rem;
 }
 
+.page:hover,
 .finding:hover,
 .link:hover {
   background: var(--hover);
   color: var(--fg);
 }
 
+.page[aria-current='page'],
 .finding[aria-current='true'],
 .link[aria-current='location'] {
   background: var(--accent-soft);
@@ -127,6 +123,7 @@
   font-weight: 600;
 }
 
+.page[aria-current='page']::before,
 .finding[aria-current='true']::before,
 .link[aria-current='location']::before {
   content: '';

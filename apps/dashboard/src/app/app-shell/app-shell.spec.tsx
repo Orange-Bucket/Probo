@@ -5,9 +5,18 @@ import AppShell, { MAIN_ID, SIDEBAR_ID, WIDE_QUERY } from './app-shell';
 
 const FINDINGS = [finding('2026-03-01-b'), finding('2026-01-01-a')];
 
-function renderShell(onSelect = vi.fn()) {
+/** Renders the shell around a finding, or around Home with `{ home: true }`. */
+function renderShell({ home = false } = {}) {
+  const selected = home ? undefined : FINDINGS[0];
+  const onSelect = vi.fn();
+  const onHome = vi.fn();
   render(
-    <AppShell findings={FINDINGS} selected={FINDINGS[0]} onSelect={onSelect}>
+    <AppShell
+      findings={FINDINGS}
+      selected={selected}
+      onSelect={onSelect}
+      onHome={onHome}
+    >
       <p>Content.</p>
     </AppShell>,
   );
@@ -15,6 +24,7 @@ function renderShell(onSelect = vi.fn()) {
     menu: screen.getByRole('button', { name: 'Navigation' }),
     sidebar: document.getElementById(SIDEBAR_ID) as HTMLElement,
     onSelect,
+    onHome,
   };
 }
 
@@ -73,6 +83,26 @@ describe('AppShell', () => {
     expect(document.activeElement?.tagName).toBe('H1');
   });
 
+  it('closes the drawer when Home is chosen and focuses the page title', () => {
+    const { menu, onHome, onSelect } = renderShell();
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+    expect(onHome).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(menu.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement?.tagName).toBe('H1');
+  });
+
+  it('on Home, is titled Home and opens the drawer with focus on Home', () => {
+    const { menu, sidebar } = renderShell({ home: true });
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Home');
+    expect(screen.queryByRole('navigation', { name: 'Sections' })).toBeNull();
+    fireEvent.click(menu);
+    const home = within(sidebar).getByRole('button', { name: 'Home' });
+    expect(home.getAttribute('aria-current')).toBe('page');
+    expect(document.activeElement).toBe(home);
+  });
+
   it('keeps Tab inside the open drawer', () => {
     const { menu, sidebar } = renderShell();
     fireEvent.click(menu);
@@ -100,7 +130,7 @@ describe('AppShell', () => {
     expect(sidebar.getAttribute('role')).toBeNull();
     expect(sidebar.hasAttribute('aria-modal')).toBe(false);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.getAllByRole('navigation')).toHaveLength(2);
+    expect(screen.getAllByRole('navigation')).toHaveLength(3);
     expect(screen.getByRole('main').closest('[inert]')).toBeNull();
     expect(
       screen

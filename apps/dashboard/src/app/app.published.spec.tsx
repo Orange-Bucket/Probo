@@ -11,8 +11,8 @@
  * report's blocks, a section's text is exactly its heading and its fixed caption, and the
  * page's own text outside the sections exactly the report's plus the fixed group headings.
  */
-import { render, screen, within } from '@testing-library/react';
-import { FINDINGS } from '../findings';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { FINDINGS, type Finding } from '../findings';
 import {
   RATE_TEXT,
   type MarkdownBlock,
@@ -23,6 +23,22 @@ import {
 import { SECTIONS, findingGroups } from '../sections';
 import { MAIN_ID } from './app-shell/app-shell';
 import App from './app';
+
+/**
+ * Renders the dashboard, which opens on Home, and opens `finding` from the navigation as a
+ * reader would, so that the page checked is the finding's own.
+ */
+function renderFinding(finding: Finding) {
+  const result = render(<App findings={[finding]} />);
+  const nav = screen.getByRole('navigation', { name: 'Findings' });
+  const button = within(nav).getByRole('button');
+  expect(button.textContent?.startsWith(finding.id)).toBe(true);
+  fireEvent.click(button);
+  expect(button.getAttribute('aria-current')).toBe('true');
+  return result;
+}
+
+afterEach(() => window.history.replaceState(null, '', '/'));
 
 /**
  * Sections of the page that report.md does not have: the overview cards, the manifest and
@@ -212,7 +228,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
     });
 
     it('shows the sections of report.md in the same order and nesting', () => {
-      render(<App findings={[finding]} />);
+      renderFinding(finding);
       const article = screen.getByRole('article');
       expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(id);
       expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
@@ -227,7 +243,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
 
     it('shows the paragraphs and tables of each section of report.md in order', () => {
       expect(markdown).not.toBeNull();
-      const { container } = render(<App findings={[finding]} />);
+      const { container } = renderFinding(finding);
       const article = screen.getByRole('article');
       let rates = 0;
       for (const section of sections) {
@@ -276,7 +292,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
     });
 
     it('shows nothing in a section but its heading, its caption and the report text', () => {
-      const { container } = render(<App findings={[finding]} />);
+      const { container } = renderFinding(finding);
       const article = screen.getByRole('article');
       for (const section of sections) {
         if (section.level === 1) {
@@ -305,7 +321,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
     });
 
     it('puts under each group heading exactly the sections GROUPS lists, in order', () => {
-      render(<App findings={[finding]} />);
+      renderFinding(finding);
       const article = screen.getByRole('article');
       const headings = Array.from(article.querySelectorAll('h3')).filter(
         (heading) => heading.closest('section') === null,
@@ -330,7 +346,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
       'shows every line of judge-calibration.txt',
       () => {
         expect(text).not.toBeNull();
-        render(<App findings={[finding]} />);
+        renderFinding(finding);
         const region = screen.getByRole('region', {
           name: 'Judge calibration',
         });

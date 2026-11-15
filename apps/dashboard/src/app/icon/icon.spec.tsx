@@ -13,3 +13,16 @@ describe('Icon', () => {
     expect(container.querySelector('image, use, a')).toBeNull();
   });
 });
+
+describe('the home and arrow icons', () => {
+  it.each(['home', 'arrow'] as const)(
+    'draw %s as stroke paths only',
+    (name) => {
+      const { container } = render(<Icon name={name} />);
+      const svg = container.querySelector('svg');
+      expect(svg?.getAttribute('viewBox')).toBe('0 0 24 24');
+      expect(svg?.querySelectorAll('path').length).toBeGreaterThan(0);
+      expect(container.textContent).toBe('');
+    },
+  );
+});

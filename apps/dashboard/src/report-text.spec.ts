@@ -102,3 +102,24 @@ describe('runWarnings', () => {
     ]);
   });
 });
+
+describe('runStatus', () => {
+  it('is incomplete exactly when the run is incomplete', () => {
+    const base = report();
+    expect(text.runStatus(base)).toBe('complete');
+    expect(text.runStatus(report({ incomplete: true }))).toBe('incomplete');
+    expect(text.runStatus(report({ not_run: 1 }))).toBe('incomplete');
+    expect(
+      text.runStatus(report({ facts: { ...base.facts, status: 'error' } })),
+    ).toBe('incomplete');
+  });
+});
+
+describe('runDate', () => {
+  it('is the recorded date of the start time, or not recorded', () => {
+    expect(text.runDate('2026-11-14T19:35:04+00:00')).toBe('2026-11-14');
+    expect(text.runDate(null)).toBe('not recorded');
+    expect(text.runDate('')).toBe('not recorded');
+    expect(text.runDate('yesterday')).toBe('yesterday');
+  });
+});

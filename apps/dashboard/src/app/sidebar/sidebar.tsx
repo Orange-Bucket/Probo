@@ -17,8 +17,11 @@ export interface SidebarProps {
   modal: boolean;
   /** Every finding, newest first. */
   findings: Finding[];
+  /** The id of the finding shown, or undefined on Home. */
   selectedId: string | undefined;
   onSelect: (id: string) => void;
+  /** Shows Home. */
+  onHome: () => void;
   /** The selected finding's section groups. */
   groups: SectionGroup[];
   /** The id of the section in view. */
@@ -30,33 +33,10 @@ export interface SidebarProps {
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
 
-/** The brand mark: an orange tile with a P, drawn here. */
-function brandMark() {
-  return (
-    <svg
-      className={styles['mark']}
-      viewBox="0 0 32 32"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect width="32" height="32" rx="9" className={styles['markTile']} />
-      <path
-        d="M12 23V9h5.5a4.5 4.5 0 0 1 0 9H12"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth={2.75}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="21.5" cy="22.5" r="1.75" fill="#ffffff" />
-    </svg>
-  );
-}
-
 /**
- * The left sidebar: brand, the findings (the selected one marked current), links to the
- * selected finding's sections (the one in view marked), and the footer line. Links point
- * only at the fixed section ids.
+ * The left sidebar, the side of the frame: the name, Home (marked current while shown),
+ * the findings (the selected one marked current), links to the selected finding's sections
+ * (the one in view marked), and the footer line. Links point only at the fixed section ids.
  */
 export function Sidebar({
   id,
@@ -65,6 +45,7 @@ export function Sidebar({
   findings,
   selectedId,
   onSelect,
+  onHome,
   groups,
   activeSection,
   onNavigate,
@@ -113,7 +94,6 @@ export function Sidebar({
       onKeyDown={onKeyDown}
     >
       <div className={styles['brand']}>
-        {brandMark()}
         <span className={styles['name']}>Probo</span>
         <button
           type="button"
@@ -125,6 +105,21 @@ export function Sidebar({
         </button>
       </div>
       <div className={styles['scroll']}>
+        <nav aria-label="Dashboard" className={styles['nav']}>
+          <ul className={styles['list']}>
+            <li>
+              <button
+                type="button"
+                className={styles['page']}
+                aria-current={selectedId === undefined ? 'page' : undefined}
+                onClick={onHome}
+              >
+                <Icon name="home" />
+                <span>Home</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
         <nav aria-label="Findings" className={styles['nav']}>
           <div className={styles['label']} aria-hidden="true">
             Findings
@@ -158,9 +153,6 @@ export function Sidebar({
         </nav>
         {groups.length > 0 && (
           <nav aria-label="Sections" className={styles['nav']}>
-            <div className={styles['label']} aria-hidden="true">
-              On this page
-            </div>
             <ul className={styles['list']}>{link('overview', 'grid')}</ul>
             {groups.map((group) => (
               <div key={group.key} className={styles['group']}>

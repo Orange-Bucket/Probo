@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
+/* The top of the frame: the same colour as the sidebar, with nothing between them. */
 .bar {
   position: sticky;
   top: 0;
@@ -8,10 +9,28 @@
   gap: 0.75rem;
   min-height: var(--topbar-height);
   padding: 0.625rem 2rem;
-  background: var(--canvas);
-  background: color-mix(in srgb, var(--canvas) 88%, transparent);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: saturate(1.4) blur(10px);
+  background: var(--frame);
+}
+
+/*
+ * The frame's inside corner, where sidebar and top bar meet: a square of frame colour
+ * hanging below the bar's left end, with a transparent quarter circle cut out, so the panel
+ * below looks rounded there. It moves with the sticky bar, so the corner stays in place
+ * while the content scrolls beneath it.
+ */
+.bar::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: var(--radius-lg);
+  height: var(--radius-lg);
+  background: radial-gradient(
+    circle at 100% 100%,
+    transparent calc(var(--radius-lg) - 0.5px),
+    var(--frame) var(--radius-lg)
+  );
+  pointer-events: none;
 }
 
 .menu {
@@ -84,8 +103,14 @@
 }
 
 @media (width < 64rem) {
+  /* The sidebar is a drawer here: the bar alone is the frame, so no inside corner. */
   .bar {
     padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bar::after {
+    display: none;
   }
 
   .menu {
