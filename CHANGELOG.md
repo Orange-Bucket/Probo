@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finding's `report.json`, `judge-calibration.json`
   and `manifest.json` at build time and shows them section by section as `report.md` and
   `judge-calibration.txt` print them. Its types are generated from the committed JSON Schemas.
+  It opens on a Home screen that lists the published findings; the URL hash `#<finding id>`
+  opens a finding directly.
 - The repository is an Nx workspace managed with pnpm; `probo` and `dashboard` are Nx projects.
 - `probo calibrate JUDGED_LOG [--format text|json] [--output FILE]`: the reply-only judge's
   calibration against `record_leaked`, from a log that already carries the judge's scores,
