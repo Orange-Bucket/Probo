@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 /// <reference types='vitest' />
+import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
+
+const workspaceRoot = path.resolve(import.meta.dirname, '../..');
 
 export default defineConfig(() => ({
   root: import.meta.dirname,
@@ -10,6 +13,16 @@ export default defineConfig(() => ({
   server: {
     port: 4200,
     host: 'localhost',
+    fs: {
+      // src/findings.ts bundles findings/*/*.json from the workspace root with
+      // import.meta.glob. Serve only the app, the findings and the installed packages.
+      strict: true,
+      allow: [
+        import.meta.dirname,
+        path.join(workspaceRoot, 'findings'),
+        path.join(workspaceRoot, 'node_modules'),
+      ],
+    },
   },
   preview: {
     port: 4300,
@@ -26,6 +39,9 @@ export default defineConfig(() => ({
   build: {
     outDir: '../../dist/apps/dashboard',
     emptyOutDir: true,
+    // The build is a single chunk, so the modulepreload polyfill (which fetches preload links)
+    // has nothing to do; leaving it out keeps fetch() out of the bundle.
+    modulePreload: { polyfill: false },
     reportCompressedSize: true,
     commonjsOptions: {
       transformMixedEsModules: true,

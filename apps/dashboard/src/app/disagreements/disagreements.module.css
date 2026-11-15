@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.trials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding-left: 1.25rem;
+}
