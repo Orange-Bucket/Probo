@@ -1,0 +1,35 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.rate {
+  display: inline-block;
+  min-width: 14rem;
+}
+
+.counts {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.absent {
+  font-style: italic;
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  max-width: 16rem;
+  height: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+.track {
+  fill: var(--track);
+}
+
+.interval {
+  fill: var(--accent);
+  opacity: 0.55;
+}
+
+.estimate {
+  fill: var(--fg);
+}
