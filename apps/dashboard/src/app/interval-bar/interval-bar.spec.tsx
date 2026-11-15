@@ -39,4 +39,23 @@ describe('IntervalBar', () => {
     expect(container.querySelector('svg')).toBeNull();
     expect(container.textContent).not.toMatch(/0\.0/);
   });
+
+  it('leaves the counts out in a card, keeping the printed rate and the bar', () => {
+    const { container } = render(
+      <IntervalBar
+        value={proportion(1, 4, 0.1, 0.6)}
+        label="share true"
+        variant="card"
+      />,
+    );
+    expect(container.querySelector('[data-rate]')?.textContent).toBe(
+      '0.250 [0.100, 0.600] (n=4, 95% Wilson)',
+    );
+    expect(screen.queryByText('1 of 4')).toBeNull();
+    expect(
+      screen.getByRole('img', {
+        name: 'share true: 0.250 [0.100, 0.600] (n=4, 95% Wilson)',
+      }),
+    ).toBeTruthy();
+  });
 });

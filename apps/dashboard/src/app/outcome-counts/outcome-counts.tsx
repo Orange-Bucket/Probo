@@ -6,6 +6,7 @@ import {
   countsTotal,
   isExcluded,
 } from '../../report-text';
+import StatusChip from '../status-chip/status-chip';
 
 export interface OutcomeCountsProps {
   report: RunSummary;
@@ -15,8 +16,11 @@ export interface OutcomeCountsProps {
 export function OutcomeCounts({ report }: OutcomeCountsProps) {
   const groups = attackGroups(report);
   return (
-    <section aria-label="Outcome counts (template trials)">
-      <h4>Outcome counts (template trials)</h4>
+    <section
+      aria-label="Outcome counts (template trials)"
+      className="subsection"
+    >
+      <h5>Outcome counts (template trials)</h5>
       <div className="table-scroll">
         <table>
           <thead>
@@ -24,7 +28,7 @@ export function OutcomeCounts({ report }: OutcomeCountsProps) {
               <th scope="col">Outcome</th>
               <th scope="col">Per-attempt</th>
               {groups.map(([name]) => (
-                <th scope="col" key={name}>
+                <th scope="col" key={name} className="num">
                   {name}
                 </th>
               ))}
@@ -33,18 +37,28 @@ export function OutcomeCounts({ report }: OutcomeCountsProps) {
           <tbody>
             {OUTCOMES.map((outcome) => (
               <tr key={outcome}>
-                <th scope="row">{outcome}</th>
-                <td>{isExcluded(outcome) ? 'excluded' : 'denominator'}</td>
+                <th scope="row">
+                  <StatusChip value={outcome} />
+                </th>
+                <td>
+                  <StatusChip
+                    value={isExcluded(outcome) ? 'excluded' : 'denominator'}
+                  />
+                </td>
                 {groups.map(([name, attack]) => (
-                  <td key={name}>{attack.counts[outcome]}</td>
+                  <td key={name} className="num">
+                    {attack.counts[outcome]}
+                  </td>
                 ))}
               </tr>
             ))}
-            <tr>
+            <tr className="total">
               <th scope="row">total</th>
               <td></td>
               {groups.map(([name, attack]) => (
-                <td key={name}>{countsTotal(attack.counts)}</td>
+                <td key={name} className="num">
+                  {countsTotal(attack.counts)}
+                </td>
               ))}
             </tr>
           </tbody>

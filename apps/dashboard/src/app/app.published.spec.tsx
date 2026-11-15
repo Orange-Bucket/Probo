@@ -4,6 +4,12 @@
  * report.md and judge-calibration.txt: the sections in the same order and nesting, each
  * section's paragraphs and tables in order with every row and nothing else, and every
  * line of the calibration text. The expected strings are read from those files.
+ *
+ * The page adds an overview of headline cards and a navigation; neither replaces a section.
+ * The overview may only repeat rates the report or the calibration text prints, and the
+ * only links are the navigation's links to the page's own fixed section ids. Beyond the
+ * report's blocks, a section's text is exactly its heading and its fixed caption, and the
+ * page's own text outside the sections exactly the report's plus the fixed group headings.
  */
 import { render, screen, within } from '@testing-library/react';
 import { FINDINGS } from '../findings';
@@ -14,10 +20,16 @@ import {
   markdownSections,
   publishedText,
 } from '../testing/published';
+import { SECTIONS, findingGroups } from '../sections';
+import { MAIN_ID } from './app-shell/app-shell';
 import App from './app';
 
-/** Sections of the page that report.md does not have: the manifest and the calibration. */
+/**
+ * Sections of the page that report.md does not have: the overview cards, the manifest and
+ * the calibration.
+ */
 const NOT_IN_REPORT = [
+  'Overview',
   'Published finding',
   'Judge calibration',
   'Disagreements',
@@ -66,11 +78,16 @@ interface OutlineEntry {
   parent: string | null;
 }
 
+/**
+ * A section's own heading. The page's h1 is the finding id in the top bar, h2 the report
+ * title, h3 the group headings (which are not sections), so the report's ## sections are
+ * h4 and its ### sections h5.
+ */
 function headingOf(section: Element): Element | null {
-  return section.querySelector(':scope > h3, :scope > h4');
+  return section.querySelector(':scope > h4, :scope > h5');
 }
 
-/** The report's sections on the page: h3 as level 2, h4 as level 3, with their parent. */
+/** The report's sections on the page: h4 as level 2, h5 as level 3, with their parent. */
 function pageOutline(article: Element): OutlineEntry[] {
   return Array.from(article.querySelectorAll('section'))
     .filter((section) => {
@@ -90,7 +107,7 @@ function pageOutline(article: Element): OutlineEntry[] {
       return {
         heading: heading?.textContent ?? '',
         level:
-          heading?.tagName === 'H3' ? 2 : heading?.tagName === 'H4' ? 3 : 0,
+          heading?.tagName === 'H4' ? 2 : heading?.tagName === 'H5' ? 3 : 0,
         parent: parent === null ? null : (headingOf(parent)?.textContent ?? ''),
       };
     });
@@ -98,6 +115,83 @@ function pageOutline(article: Element): OutlineEntry[] {
 
 function rateCount(element: Element): number {
   return element.querySelectorAll('[data-rate]').length;
+}
+
+/**
+ * The words of the text that belongs to `region` itself, in document order: every text
+ * node whose nearest section or article is `region` (so not a subsection's, which is
+ * compared on its own), except the `x of n` counts the interval bars print beside a rate
+ * (checked apart, by `checkCounts`). Each text node is split on whitespace separately, so
+ * text of adjacent elements never runs together; words are escaped as report.md escapes
+ * cell text.
+ */
+function ownWords(region: Element): string[] {
+  const walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT);
+  const words: string[] = [];
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    const parent = node.parentElement;
+    if (parent === null || parent.closest('section, article') !== region)
+      continue;
+    if (parent.closest('[data-counts]') !== null) continue;
+    for (const word of (node.textContent ?? '').split(/\s+/)) {
+      if (word !== '') words.push(markdownCell(word));
+    }
+  }
+  return words;
+}
+
+/** The words of a report block: a paragraph (bold markers dropped) or every table cell. */
+function blockWords(block: MarkdownBlock): string[] {
+  const text =
+    block.kind === 'paragraph'
+      ? block.text.replace(/^\*\*(.*)\*\*$/, '$1')
+      : block.rows.flat().join(' ');
+  return text.split(/\s+/).filter(Boolean);
+}
+
+function words(text: string): string[] {
+  return text.split(/\s+/).filter(Boolean);
+}
+
+/** Every `x of n` beside a rate: n is the rate's own n, and x is at most n. */
+function checkCounts(container: Element) {
+  for (const counts of Array.from(
+    container.querySelectorAll('[data-counts]'),
+  )) {
+    const rate = counts.parentElement?.querySelector('[data-rate]');
+    const [, n] = /\(n=(\d+)/.exec(rate?.textContent ?? '') ?? [];
+    const match = /^(\d+) of (\d+)$/.exec(counts.textContent ?? '');
+    expect(match, counts.textContent ?? '').not.toBeNull();
+    expect(match?.[2]).toBe(n);
+    expect(Number(match?.[1])).toBeLessThanOrEqual(Number(n));
+  }
+}
+
+/** The ids a link on the page may point at: the main landmark and the fixed sections. */
+const LINK_TARGETS = new Set([
+  MAIN_ID,
+  ...Object.values(SECTIONS).map((section) => section.id),
+]);
+
+/** Every rate printed in report.md's tables and in judge-calibration.txt. */
+function publishedRates(
+  sections: ReturnType<typeof markdownSections>,
+  text: string | null,
+): Set<string> {
+  const rates = new Set(
+    sections.flatMap((section) =>
+      section.blocks.flatMap((block) =>
+        block.kind === 'table'
+          ? block.rows.flat().filter((cell) => RATE_TEXT.test(cell))
+          : [],
+      ),
+    ),
+  );
+  for (const line of (text ?? '').split('\n')) {
+    const value = line.slice(line.indexOf(': ') + 2);
+    if (RATE_TEXT.test(value)) rates.add(value);
+  }
+  return rates;
 }
 
 describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
@@ -120,6 +214,7 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
     it('shows the sections of report.md in the same order and nesting', () => {
       render(<App findings={[finding]} />);
       const article = screen.getByRole('article');
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(id);
       expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
         sections.find((section) => section.level === 1)?.heading,
       );
@@ -149,15 +244,86 @@ describe.each(FINDINGS.map((finding) => [finding.id, finding] as const))(
           }
         }
       }
-      // Every rate on the page outside the calibration is one of the report's rates.
+      // Every rate on the page outside the calibration and the overview is one of the
+      // report's rates, and the overview repeats only rates the published files print.
       const calibration = screen.queryByRole('region', {
         name: 'Judge calibration',
       });
+      const overview = screen.getByRole('region', { name: 'Overview' });
       expect(
-        rateCount(container) - (calibration ? rateCount(calibration) : 0),
+        rateCount(container) -
+          (calibration ? rateCount(calibration) : 0) -
+          rateCount(overview),
       ).toBe(rates);
-      // Nothing from the data becomes a link or markup.
-      expect(container.querySelector('a, img, script, iframe')).toBeNull();
+      const printed = publishedRates(sections, text);
+      const repeated = Array.from(overview.querySelectorAll('[data-rate]')).map(
+        (rate) => rate.textContent ?? '',
+      );
+      expect(repeated.length).toBeGreaterThan(0);
+      for (const rate of repeated) expect(printed).toContain(rate);
+      // Nothing from the data becomes a link or markup: the finding holds no link at all,
+      // and the only links are the shell's, each to a fixed id of an element on the page.
+      expect(
+        container.querySelector('img, image, script, iframe, object, embed'),
+      ).toBeNull();
+      expect(article.querySelector('a')).toBeNull();
+      for (const link of Array.from(container.querySelectorAll('a'))) {
+        const href = link.getAttribute('href') ?? '';
+        expect(href.startsWith('#'), href).toBe(true);
+        expect(LINK_TARGETS.has(href.slice(1)), href).toBe(true);
+        expect(document.getElementById(href.slice(1)), href).not.toBeNull();
+      }
+    });
+
+    it('shows nothing in a section but its heading, its caption and the report text', () => {
+      const { container } = render(<App findings={[finding]} />);
+      const article = screen.getByRole('article');
+      for (const section of sections) {
+        if (section.level === 1) {
+          // The title, the report's paragraphs (warnings and the two fixed sentences) and
+          // the fixed group headings: nothing else outside the sections.
+          expect(ownWords(article)).toEqual([
+            ...words(section.heading),
+            ...section.blocks.flatMap(blockWords),
+            ...findingGroups(finding).flatMap((group) => words(group.title)),
+          ]);
+          continue;
+        }
+        const info = Object.values(SECTIONS).find(
+          (candidate) => candidate.title === section.heading,
+        );
+        // A ## section is a section card with a fixed caption; a ### one has none.
+        if (section.level === 2) expect(info, section.heading).toBeDefined();
+        const region = screen.getByRole('region', { name: section.heading });
+        expect(ownWords(region), section.heading).toEqual([
+          ...words(section.heading),
+          ...(section.level === 2 ? words(info?.caption ?? '') : []),
+          ...section.blocks.flatMap(blockWords),
+        ]);
+      }
+      checkCounts(container);
+    });
+
+    it('puts under each group heading exactly the sections GROUPS lists, in order', () => {
+      render(<App findings={[finding]} />);
+      const article = screen.getByRole('article');
+      const headings = Array.from(article.querySelectorAll('h3')).filter(
+        (heading) => heading.closest('section') === null,
+      );
+      const groups = findingGroups(finding);
+      expect(headings.map((heading) => heading.textContent)).toEqual(
+        groups.map((group) => group.title),
+      );
+      headings.forEach((heading, index) => {
+        const shown = Array.from(
+          heading.parentElement?.querySelectorAll('section') ?? [],
+        )
+          .filter((section) => section.querySelector(':scope > h4') !== null)
+          .map((section) => section.id);
+        expect(shown, groups[index].title).toEqual(
+          groups[index].sections.map((key) => SECTIONS[key].id),
+        );
+      });
     });
 
     it.runIf(finding.calibration !== null)(

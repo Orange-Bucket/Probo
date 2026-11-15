@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { JudgeCalibration } from '../../generated/calibration';
 import { trialRef } from '../../format';
+import SectionCard from '../section-card/section-card';
 import styles from './disagreements.module.css';
 
 export interface DisagreementsProps {
@@ -15,18 +16,17 @@ export function Disagreements({ calibration }: DisagreementsProps) {
     ['unknown', calibration.unknowns],
   ] as const;
   return (
-    <section aria-label="Disagreements">
-      <h3>Disagreements</h3>
+    <SectionCard section="disagreements">
       <p className="muted">Trials as sample id@epoch, in log order.</p>
       {lists.map(([name, trials]) => (
-        <section key={name} aria-label={name}>
-          <h4>{`${name} (${trials.length})`}</h4>
+        <section key={name} aria-label={name} className="subsection">
+          <h5>{`${name} (${trials.length})`}</h5>
           {trials.length === 0 ? (
             <p>none</p>
           ) : (
             <ul className={styles['trials']}>
               {trials.map((trial) => (
-                <li key={trialRef(trial)} className="code">
+                <li key={trialRef(trial)} className={`code ${styles['trial']}`}>
                   {trialRef(trial)}
                 </li>
               ))}
@@ -34,7 +34,7 @@ export function Disagreements({ calibration }: DisagreementsProps) {
           )}
         </section>
       ))}
-    </section>
+    </SectionCard>
   );
 }
 

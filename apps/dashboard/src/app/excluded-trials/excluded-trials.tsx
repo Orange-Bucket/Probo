@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { RunSummary } from '../../generated/report';
 import { GRADER_SENTENCE, isExcluded } from '../../report-text';
+import SectionCard from '../section-card/section-card';
+import StatusChip from '../status-chip/status-chip';
 
 export interface ExcludedTrialsProps {
   report: RunSummary;
@@ -15,8 +17,7 @@ export function ExcludedTrials({ report }: ExcludedTrialsProps) {
     (label) => label.outcome !== null && isExcluded(label.outcome),
   );
   return (
-    <section aria-label="Excluded trials">
-      <h3>Excluded trials</h3>
+    <SectionCard section="excluded-trials">
       <p>
         {'Template trials outside the per-attempt denominator, and control trials with an ' +
           `error label: ${rows.length}.`}
@@ -28,7 +29,9 @@ export function ExcludedTrials({ report }: ExcludedTrialsProps) {
             <thead>
               <tr>
                 <th scope="col">Sample</th>
-                <th scope="col">Epoch</th>
+                <th scope="col" className="num">
+                  Epoch
+                </th>
                 <th scope="col">Kind</th>
                 <th scope="col">Outcome</th>
                 <th scope="col">Evidence</th>
@@ -40,9 +43,13 @@ export function ExcludedTrials({ report }: ExcludedTrialsProps) {
                   <th scope="row" className="code">
                     {label.sample_id}
                   </th>
-                  <td>{label.epoch}</td>
+                  <td className="num">{label.epoch}</td>
                   <td>{label.kind}</td>
-                  <td>{label.outcome}</td>
+                  <td>
+                    {label.outcome !== null && (
+                      <StatusChip value={label.outcome} />
+                    )}
+                  </td>
                   <td className="code">{label.evidence.join('; ')}</td>
                 </tr>
               ))}
@@ -50,7 +57,7 @@ export function ExcludedTrials({ report }: ExcludedTrialsProps) {
           </table>
         </div>
       )}
-    </section>
+    </SectionCard>
   );
 }
 

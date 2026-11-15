@@ -1,7 +1,12 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 .rate {
   display: inline-block;
-  min-width: 14rem;
+  min-width: 15rem;
+  max-width: 100%;
+}
+
+.text {
+  font-variant-numeric: tabular-nums;
 }
 
 .counts {
@@ -11,6 +16,7 @@
 
 .absent {
   font-style: italic;
+  color: var(--muted);
 }
 
 .bar {
@@ -18,18 +24,32 @@
   width: 100%;
   max-width: 16rem;
   height: 0.75rem;
-  margin-top: 0.2rem;
+  margin-top: 0.375rem;
 }
 
+.card {
+  display: block;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.card .bar {
+  max-width: none;
+  height: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+/* A thin line: the interval is told from it by thickness, since both meet 3:1 against the
+   card but not against each other. */
 .track {
   fill: var(--track);
 }
 
 .interval {
-  fill: var(--accent);
-  opacity: 0.55;
+  fill: var(--accent-bar);
 }
 
 .estimate {
-  fill: var(--fg);
+  fill: var(--tick);
 }

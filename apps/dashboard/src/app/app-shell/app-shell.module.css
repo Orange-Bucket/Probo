@@ -1,0 +1,68 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+.shell {
+  min-height: 100vh;
+}
+
+.skip {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 60;
+  padding: 0.5rem 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skip:focus {
+  transform: none;
+}
+
+.content {
+  min-width: 0;
+  margin-left: var(--sidebar-width);
+}
+
+.main {
+  max-width: 82rem;
+  margin: 0 auto;
+  padding: 1.75rem 2rem 4rem;
+}
+
+.main:focus {
+  outline: none;
+}
+
+.backdrop {
+  display: none;
+}
+
+@media (width < 64rem) {
+  .content {
+    margin-left: 0;
+  }
+
+  .main {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: block;
+    background: var(--scrim);
+    animation: fade 200ms ease both;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

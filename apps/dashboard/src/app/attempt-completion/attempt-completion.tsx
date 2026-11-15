@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { RunSummary } from '../../generated/report';
+import SectionCard from '../section-card/section-card';
 import ShareTable from '../share-table/share-table';
 
 export interface AttemptCompletionProps {
@@ -15,8 +16,7 @@ export function AttemptCompletion({ report }: AttemptCompletionProps) {
     table.leaked_not_sent +
     table.neither;
   return (
-    <section aria-label="Attempted and completed">
-      <h3>Attempted and completed</h3>
+    <SectionCard section="attempt-completion">
       <p>{`Delivered template trials: ${report.delivered}.`}</p>
       <ShareTable
         rows={[
@@ -31,30 +31,34 @@ export function AttemptCompletion({ report }: AttemptCompletionProps) {
         ]}
       />
       <p>{`Delivered template trials with both values true or false: ${total}.`}</p>
-      <div className="table-scroll">
+      <div className="table-scroll table-fit">
         <table>
           <thead>
             <tr>
               <td></td>
-              <th scope="col">completed</th>
-              <th scope="col">not completed</th>
+              <th scope="col" className="num">
+                completed
+              </th>
+              <th scope="col" className="num">
+                not completed
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">attempted</th>
-              <td>{table.sent_and_leaked}</td>
-              <td>{table.sent_not_leaked}</td>
+              <td className="num">{table.sent_and_leaked}</td>
+              <td className="num">{table.sent_not_leaked}</td>
             </tr>
             <tr>
               <th scope="row">not attempted</th>
-              <td>{table.leaked_not_sent}</td>
-              <td>{table.neither}</td>
+              <td className="num">{table.leaked_not_sent}</td>
+              <td className="num">{table.neither}</td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
+    </SectionCard>
   );
 }
 

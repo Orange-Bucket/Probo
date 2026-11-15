@@ -20,22 +20,28 @@ export function ShareTable({ rows }: ShareTableProps) {
         <thead>
           <tr>
             <th scope="col">Quantity</th>
-            <th scope="col">Trials</th>
+            <th scope="col" className="num">
+              Trials
+            </th>
             <th scope="col">Share true</th>
-            <th scope="col">Not applicable</th>
-            <th scope="col">Missing</th>
+            <th scope="col" className="num">
+              Not applicable
+            </th>
+            <th scope="col" className="num">
+              Missing
+            </th>
           </tr>
         </thead>
         <tbody>
           {rows.map(({ label, share }) => (
             <tr key={label}>
               <th scope="row">{label}</th>
-              <td>{share.trials}</td>
+              <td className="num">{share.trials}</td>
               <td>
                 <IntervalBar value={share.value} label={label} />
               </td>
-              <td>{share.not_applicable}</td>
-              <td>{share.missing}</td>
+              <td className="num">{share.not_applicable}</td>
+              <td className="num">{share.missing}</td>
             </tr>
           ))}
         </tbody>

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ReactNode } from 'react';
 import type { RunSummary, TokenUsage } from '../../generated/report';
-import type { Manifest } from '../../findings';
+import { manifestRows, type Manifest } from '../../findings';
 import { formatConfig, formatLevel, pythonMember } from '../../format';
 import { NOT_RECORDED, TERMS, orNotRecorded } from '../../report-text';
+import SectionCard from '../section-card/section-card';
 
 export interface RunFactsProps {
   report: RunSummary;
   /** The finding's `manifest.json`, when it has one. */
   manifest?: Manifest | null;
+  /** Only this one of the three sections; all three, in report order, by default. */
+  part?: 'run' | 'trials' | 'published';
 }
 
 const USAGE_FIELDS: (keyof TokenUsage)[] = [
@@ -29,22 +32,11 @@ function usageRow(name: string, usage: TokenUsage): string[] {
   ];
 }
 
-/** The scalar top-level entries of a manifest, shown as text. */
-function manifestRows(manifest: Manifest): [string, string][] {
-  return Object.entries(manifest).flatMap(([key, value]): [string, string][] =>
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-      ? [[key, String(value)]]
-      : [],
-  );
-}
-
 /**
  * The Run, Token usage and Trials sections of the report (Trials ends with the terms the
  * rates use), and the finding's manifest.
  */
-export function RunFacts({ report, manifest }: RunFactsProps) {
+export function RunFacts({ report, manifest, part }: RunFactsProps) {
   const facts = report.facts;
   const roles = Object.entries(facts.model_roles)
     .map(
@@ -110,120 +102,136 @@ export function RunFacts({ report, manifest }: RunFactsProps) {
     ['template', String(report.template_trials)],
   ];
   const published = manifest ? manifestRows(manifest) : [];
-  return (
-    <>
-      <section aria-label="Run">
-        <h3>Run</h3>
+  const run = (
+    <SectionCard section="run">
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Fact</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(([fact, value]) => (
+              <tr key={fact}>
+                <th scope="row">{fact}</th>
+                <td className="code">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <section aria-label="Token usage" className="subsection">
+        <h5>Token usage</h5>
+        {usage.length === 0 ? (
+          <p>No token usage recorded.</p>
+        ) : (
+          <>
+            <p>
+              Input excludes cache reads and writes; totals are as Inspect
+              reports them.
+            </p>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    {[
+                      'Usage',
+                      'Input (excl. cache)',
+                      'Cache read',
+                      'Cache write',
+                      'Output',
+                      'Reasoning',
+                      'Total',
+                      'Cost',
+                    ].map((name, index) => (
+                      <th
+                        scope="col"
+                        key={name}
+                        className={index > 0 ? 'num' : undefined}
+                      >
+                        {name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {usage.map(([name, ...cells]) => (
+                    <tr key={name}>
+                      <th scope="row">{name}</th>
+                      {cells.map((cell, index) => (
+                        <td key={index} className="num">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </SectionCard>
+  );
+  const trialsCard = (
+    <SectionCard section="trials">
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Group</th>
+              <th scope="col" className="num">
+                Trials
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {trials.map(([group, count]) => (
+              <tr key={group}>
+                <th scope="row">{group}</th>
+                <td className="num">{count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p>{TERMS}</p>
+    </SectionCard>
+  );
+  const publishedCard =
+    published.length > 0 ? (
+      <SectionCard section="published">
+        <p className="muted">From the finding&apos;s manifest.json.</p>
         <div className="table-scroll">
           <table>
             <thead>
               <tr>
-                <th scope="col">Fact</th>
+                <th scope="col">Field</th>
                 <th scope="col">Value</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(([fact, value]) => (
-                <tr key={fact}>
-                  <th scope="row">{fact}</th>
+              {published.map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key}</th>
                   <td className="code">{value}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <section aria-label="Token usage">
-          <h4>Token usage</h4>
-          {usage.length === 0 ? (
-            <p>No token usage recorded.</p>
-          ) : (
-            <>
-              <p>
-                Input excludes cache reads and writes; totals are as Inspect
-                reports them.
-              </p>
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      {[
-                        'Usage',
-                        'Input (excl. cache)',
-                        'Cache read',
-                        'Cache write',
-                        'Output',
-                        'Reasoning',
-                        'Total',
-                        'Cost',
-                      ].map((name) => (
-                        <th scope="col" key={name}>
-                          {name}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {usage.map(([name, ...cells]) => (
-                      <tr key={name}>
-                        <th scope="row">{name}</th>
-                        {cells.map((cell, index) => (
-                          <td key={index}>{cell}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </section>
-      </section>
-      <section aria-label="Trials">
-        <h3>Trials</h3>
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Group</th>
-                <th scope="col">Trials</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trials.map(([group, count]) => (
-                <tr key={group}>
-                  <th scope="row">{group}</th>
-                  <td>{count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p>{TERMS}</p>
-      </section>
-      {published.length > 0 && (
-        <section aria-label="Published finding">
-          <h3>Published finding</h3>
-          <p className="muted">From the finding&apos;s manifest.json.</p>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Field</th>
-                  <th scope="col">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {published.map(([key, value]) => (
-                  <tr key={key}>
-                    <th scope="row">{key}</th>
-                    <td className="code">{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
+      </SectionCard>
+    ) : null;
+  if (part === 'run') return run;
+  if (part === 'trials') return trialsCard;
+  if (part === 'published') return publishedCard;
+  return (
+    <>
+      {run}
+      {trialsCard}
+      {publishedCard}
     </>
   );
 }

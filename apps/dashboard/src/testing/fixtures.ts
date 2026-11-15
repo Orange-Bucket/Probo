@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Small, hand-made report and calibration data for component tests. */
+import type { Finding } from '../findings';
 import type { JudgeCalibration } from '../generated/calibration';
 import type {
   AttackSuccess,
@@ -247,6 +248,17 @@ export function calibration(
     precision: proportion(2, 3, 0.2077, 0.9385),
     recall: proportion(2, 3, 0.2077, 0.9385),
     recall_unknown_as_miss: proportion(2, 4, 0.15, 0.85),
+    ...values,
+  };
+}
+
+/** A finding with the fixture report and calibration and no manifest, unless given. */
+export function finding(id: string, values: Partial<Finding> = {}): Finding {
+  return {
+    id,
+    report: report(),
+    calibration: calibration(),
+    manifest: null,
     ...values,
   };
 }

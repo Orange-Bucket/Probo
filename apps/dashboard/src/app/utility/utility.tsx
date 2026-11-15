@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { RunSummary } from '../../generated/report';
+import SectionCard from '../section-card/section-card';
 import ShareTable, { type ShareRow } from '../share-table/share-table';
 
 export interface UtilityProps {
@@ -31,10 +32,9 @@ export function Utility({ report }: UtilityProps) {
     );
   }
   return (
-    <section aria-label="Utility">
-      <h3>Utility</h3>
+    <SectionCard section="utility">
       <ShareTable rows={rows} />
-    </section>
+    </SectionCard>
   );
 }
 

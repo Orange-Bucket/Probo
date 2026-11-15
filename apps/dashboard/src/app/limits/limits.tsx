@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { RunSummary } from '../../generated/report';
 import { LIMIT_SENTENCE } from '../../report-text';
+import SectionCard from '../section-card/section-card';
+import StatusChip from '../status-chip/status-chip';
 
 export interface LimitsProps {
   report: RunSummary;
@@ -22,8 +24,7 @@ export function Limits({ report }: LimitsProps) {
       label.outcome === 'attack_failed_target_resisted' && label.limit !== null,
   );
   return (
-    <section aria-label="Limits">
-      <h3>Limits</h3>
+    <SectionCard section="limits">
       <p>{LIMIT_SENTENCE}</p>
       <div className="table-scroll">
         <table>
@@ -31,8 +32,12 @@ export function Limits({ report }: LimitsProps) {
             <tr>
               <th scope="col">Kind</th>
               <th scope="col">Outcome</th>
-              <th scope="col">Trials</th>
-              <th scope="col">Hit a limit</th>
+              <th scope="col" className="num">
+                Trials
+              </th>
+              <th scope="col" className="num">
+                Hit a limit
+              </th>
               <th scope="col">By limit type</th>
             </tr>
           </thead>
@@ -45,9 +50,11 @@ export function Limits({ report }: LimitsProps) {
               return (
                 <tr key={`${row.kind}\n${row.outcome}`}>
                   <th scope="row">{row.kind}</th>
-                  <td>{row.outcome ?? 'no outcome'}</td>
-                  <td>{row.trials}</td>
-                  <td>{limited}</td>
+                  <td>
+                    <StatusChip value={row.outcome ?? 'no outcome'} />
+                  </td>
+                  <td className="num">{row.trials}</td>
+                  <td className="num">{limited}</td>
                   <td>{byLimitType(row.limits)}</td>
                 </tr>
               );
@@ -62,7 +69,9 @@ export function Limits({ report }: LimitsProps) {
             <thead>
               <tr>
                 <th scope="col">Sample</th>
-                <th scope="col">Epoch</th>
+                <th scope="col" className="num">
+                  Epoch
+                </th>
                 <th scope="col">Limit</th>
                 <th scope="col">Evidence</th>
               </tr>
@@ -73,7 +82,7 @@ export function Limits({ report }: LimitsProps) {
                   <th scope="row" className="code">
                     {label.sample_id}
                   </th>
-                  <td>{label.epoch}</td>
+                  <td className="num">{label.epoch}</td>
                   <td>{label.limit}</td>
                   <td className="code">{label.evidence.join('; ')}</td>
                 </tr>
@@ -82,7 +91,7 @@ export function Limits({ report }: LimitsProps) {
           </table>
         </div>
       )}
-    </section>
+    </SectionCard>
   );
 }
 
