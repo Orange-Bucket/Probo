@@ -21,7 +21,8 @@ channel. If you are unsure whether something is a security issue, report it priv
 
 Please include:
 
-- the Probo commit or version, Python version, operating system, and Docker version if relevant;
+- the Probo commit or version, Python version, operating system, and Docker version if relevant
+  (for the dashboard: the Node.js version and the browser);
 - what an attacker can do and under what conditions (for example, what range content or
   configuration they need to control);
 - steps to reproduce, ideally a minimal scenario, fixture or command;
@@ -55,7 +56,9 @@ an MCP server:
 - affect the operator's machine outside the sandbox, or escape the sandbox;
 - read or leak the operator's credentials, such as model provider API keys;
 - reach hosts outside the declared scope;
-- tamper with checks, results or logs so that a run reports something other than what happened.
+- tamper with checks, results or logs so that a run reports something other than what happened;
+- run script, load remote content or otherwise act in the browser of someone viewing the findings
+  dashboard, which renders text taken from logs.
 
 Vulnerabilities in Inspect, the MCP SDK, Docker or other dependencies should be reported to those
 projects. If Probo uses a dependency in a way that makes such a vulnerability exploitable, report

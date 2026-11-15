@@ -42,7 +42,15 @@ workspace:
   (a test fails when they differ from the root files). `project.json` registers it with Nx.
 - The root `pyproject.toml` defines the uv workspace, the development tools and the Ruff, Pyright
   and pytest settings for the whole repository. `uv.lock` is at the root.
+- `apps/dashboard/` is the findings dashboard, a React application built with Vite.
 - `findings/` holds the published findings.
+- `nx.json`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `tsconfig.base.json` and the
+  root ESLint, Prettier and Vitest configuration belong to the Nx and pnpm workspace.
+
+Create new Nx projects, targets and components with Nx generators (`pnpm nx g ...`) rather than
+by hand, and in the pull request list the exact commands and every edit made to the generated
+files afterwards. Upgrade Nx and its plugins with `pnpm nx migrate`, which also applies
+their code migrations.
 
 The `probo` Nx project has these targets, which run from the repository root:
 
@@ -64,7 +72,8 @@ package, without the workspace's development group, and removes the tools from `
 
 ## Checks that must pass
 
-Every pull request must pass these locally and in CI:
+Every pull request must pass these locally and in CI, and the dashboard checks under
+[Dashboard](#dashboard) as well:
 
 ```bash
 uv run ruff check .          # lint
@@ -82,14 +91,31 @@ Run `uv run ruff format .` to apply formatting. Pyright runs in strict mode over
 ## Dashboard
 
 The React application under `apps/dashboard` is an [Nx](https://nx.dev/) project in a
-[pnpm](https://pnpm.io/) workspace. You need Node.js 24 and pnpm (the version is pinned by
-`packageManager` in `package.json`).
+[pnpm](https://pnpm.io/) workspace. You need Node.js (CI uses version 24) and pnpm (the version
+is pinned by `packageManager` in `package.json`).
 
 ```bash
 pnpm install                                                # install the workspace dependencies
 pnpm nx serve dashboard                                     # development server on http://localhost:4200
 pnpm nx run-many -t lint typecheck test build -p dashboard  # checks that must pass
+pnpm nx format:check                                        # Prettier, for the JavaScript side (not run in CI)
+pnpm nx run dashboard:generate-types                        # after a JSON Schema changed
 ```
+
+The dashboard bundles `findings/*/report.json`, `judge-calibration.json` and `manifest.json` at
+build time. Its TypeScript types in `apps/dashboard/src/generated/` are generated from the JSON
+Schemas in `packages/probo/schemas/`; after changing a Python output model, run
+`pnpm nx run probo:export-schema` and then `pnpm nx run dashboard:generate-types`, and commit both
+results. Tests fail while either is out of date.
+
+Rules for dashboard code:
+
+- Show numbers exactly as the reports print them. Formatting lives in `src/format.ts`, which
+  mirrors the Python rules; a test renders every published finding and compares the page with its
+  `report.md` and `judge-calibration.txt`.
+- Text from findings is untrusted. Render it as text only: no `dangerouslySetInnerHTML`, no
+  Markdown or HTML rendering, no links or other URLs built from data. ESLint enforces the first.
+- No data fetched at run time, and no new dependency without discussing it in an issue first.
 
 ## Tests
 

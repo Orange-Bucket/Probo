@@ -10,5 +10,6 @@
 
 - [ ] Tests added or updated
 - [ ] `uv run ruff check .`, `uv run ruff format --check .`, `uv run pyright`, `uv run pytest` and `uv build --package probo` pass
+- [ ] For dashboard changes: `pnpm nx run-many -t lint typecheck test build -p dashboard` passes
 - [ ] CHANGELOG.md updated, if the change is user-visible
 - [ ] PR title follows Conventional Commits (`type(scope): description`)

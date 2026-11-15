@@ -68,3 +68,10 @@ body:
       description: "Output of `docker version --format '{{.Server.Version}}'` and `docker compose version`, or \"not used\"."
     validations:
       required: true
+  - type: input
+    id: dashboard-environment
+    attributes:
+      label: Node.js version and browser
+      description: "Only for a problem with the findings dashboard: output of `node --version`, and the browser and its version."
+    validations:
+      required: false
